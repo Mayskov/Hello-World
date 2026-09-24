@@ -3,10 +3,349 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>BJJ Plan Simulator</title>
+<style>
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #efede7;
+  --text: #1c1d21;
+  --muted: #5d6068;
+  --border: #d9d6cd;
+  --accent: #2f5bd3;
+  --accent-text: #ffffff;
+  --good: #1f7a4d;
+  --bad: #b3372b;
+  --warn: #8a5a00;
+  --warn-bg: #fff4d6;
+  --win: #2f7d5b;
+  --loss: #c0463a;
+  --bar: #2f5bd3;
+  --bar-2: #c0463a;
+  --focus: #f0a500;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141519;
+    --surface: #1d1f25;
+    --surface-2: #262932;
+    --text: #e9e9ec;
+    --muted: #a3a6b0;
+    --border: #353945;
+    --accent: #7c9cff;
+    --accent-text: #0f1320;
+    --good: #5fcf98;
+    --bad: #ff8a7d;
+    --warn: #ffd27a;
+    --warn-bg: #3a2f14;
+    --win: #4fb488;
+    --loss: #e0685b;
+    --bar: #7c9cff;
+    --bar-2: #e0685b;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141519; --surface: #1d1f25; --surface-2: #262932; --text: #e9e9ec; --muted: #a3a6b0;
+  --border: #353945; --accent: #7c9cff; --accent-text: #0f1320; --good: #5fcf98; --bad: #ff8a7d;
+  --warn: #ffd27a; --warn-bg: #3a2f14; --win: #4fb488; --loss: #e0685b; --bar: #7c9cff; --bar-2: #e0685b;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+header.app { padding: 16px 16px 0; max-width: 1100px; margin: 0 auto; }
+header.app h1 { margin: 0; font-size: 1.35rem; }
+header.app p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+nav.tabs {
+  position: sticky; top: 0; z-index: 5; background: var(--bg);
+  display: flex; gap: 4px; padding: 12px 16px 8px; max-width: 1100px; margin: 0 auto;
+  border-bottom: 1px solid var(--border); overflow-x: auto;
+}
+nav.tabs button {
+  flex: 1 1 0; min-width: 72px; padding: 9px 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
+nav.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+section.view[hidden] { display: none; }
+h2 { font-size: 1.15rem; margin: 0 0 12px; }
+h3 { font-size: 1rem; margin: 18px 0 8px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row > label { display: flex; flex-direction: column; gap: 3px; font-size: 0.85rem; color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button {
+  padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2);
+  cursor: pointer; min-height: 36px;
+}
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+select, input[type="text"], input[type="number"], textarea {
+  padding: 7px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); min-height: 36px;
+  max-width: 100%;
+}
+textarea { width: 100%; min-height: 110px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.8rem; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+input[type="color"] { width: 48px; height: 36px; padding: 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+
+/* Fighter */
+.budget { font-weight: 600; }
+.budget.over { color: var(--bad); }
+.stat { display: grid; grid-template-columns: 120px 1fr 28px; gap: 10px; align-items: center; padding: 4px 0; }
+.stat output { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.archetypes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.archetype { display: block; border: 1px solid var(--border); border-radius: 8px; padding: 10px; cursor: pointer; background: var(--surface); }
+.archetype:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.archetype input { margin-right: 6px; }
+.archetype ul { margin: 6px 0 0; padding-left: 18px; font-size: 0.85rem; color: var(--muted); }
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
+
+/* Plan */
+ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+ol.steps > li { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; background: var(--surface); }
+.step-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.step-head strong { font-size: 0.95rem; }
+.step-fields { display: grid; grid-template-columns: 2fr 2fr 1.4fr 0.7fr; gap: 8px; }
+.step-fields label { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; color: var(--muted); min-width: 0; }
+.step-fields select { width: 100%; }
+.step-info { font-size: 0.83rem; color: var(--muted); margin-top: 6px; }
+.step-info b { color: var(--text); font-weight: 600; }
+.icon-btns { display: flex; gap: 4px; }
+.icon-btns button { min-width: 36px; padding: 4px 8px; }
+.warnings { list-style: none; padding: 0; margin: 0; }
+.warnings li { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; font-size: 0.88rem; }
+.ok-note { color: var(--good); font-size: 0.9rem; }
+@media (max-width: 700px) { .step-fields { grid-template-columns: 1fr 1fr; } }
+
+/* Match */
+.scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; }
+.fighter-box { border: 1px solid var(--border); border-radius: 8px; padding: 10px; min-width: 0; }
+.fighter-box h4 { margin: 0 0 4px; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gi-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border); display: inline-block; flex: none; }
+.belt { font-size: 0.72rem; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); }
+.score { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; margin: 4px 0; }
+.bar > span { display: block; height: 100%; background: var(--bar); }
+.center-box { text-align: center; align-self: center; min-width: 90px; }
+.center-box .clock { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.chip { font-size: 0.75rem; padding: 1px 7px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.result-banner { padding: 10px 12px; border-radius: 8px; background: var(--surface-2); font-weight: 600; margin-bottom: 10px; }
+.timeline { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0; }
+.timeline input[type="range"] { flex: 1 1 200px; }
+ol.log { list-style: none; margin: 0; padding: 0; }
+ol.log > li { border-left: 3px solid var(--border); padding: 6px 10px; margin-bottom: 6px; background: var(--surface); border-radius: 0 8px 8px 0; }
+ol.log > li.current { border-left-color: var(--accent); }
+ol.log .when { font-size: 0.8rem; color: var(--muted); }
+ol.log .line { margin: 2px 0; }
+ol.log .outcome-success { color: var(--good); font-weight: 600; }
+ol.log .outcome-failure { color: var(--muted); font-weight: 600; }
+ol.log .outcome-partial { color: var(--warn); font-weight: 600; }
+ol.log .outcome-reversal { color: var(--bad); font-weight: 600; }
+ol.log .event { font-size: 0.85rem; }
+details.breakdown summary { cursor: pointer; font-size: 0.82rem; color: var(--accent); }
+details.breakdown table { font-size: 0.82rem; border-collapse: collapse; margin: 4px 0; }
+details.breakdown td { padding: 1px 10px 1px 0; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) {
+  .scoreboard { grid-template-columns: 1fr 1fr; }
+  .center-box { grid-column: 1 / -1; grid-row: 1; }
+}
+
+/* Lab */
+progress { width: 100%; height: 14px; }
+.table-wrap { overflow-x: auto; }
+table.data { border-collapse: collapse; width: 100%; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+table.data th, table.data td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+table.data th:first-child, table.data td:first-child { text-align: left; }
+table.data th { font-weight: 600; color: var(--muted); }
+table.matrix td.cell { text-align: center; font-weight: 600; }
+.flag { color: var(--bad); font-weight: 700; }
+.hist { display: grid; grid-template-columns: 130px 1fr 52px; gap: 6px 10px; align-items: center; font-size: 0.85rem; }
+.hist .bar { height: 12px; margin: 0; }
+.hist .bar > span.over { background: var(--bar-2); }
+.tests li.pass { color: var(--good); }
+.tests li.fail { color: var(--bad); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
 </head>
 <body>
-<p>BJJ Plan Simulator: the data layer is loaded. Open the console and run <code>BJJ.runDataSelfTests()</code>.</p>
+<header class="app">
+  <h1>BJJ Plan Simulator</h1>
+  <p>Build a fighter, write a game plan, and see how it holds up tick by tick.</p>
+</header>
+<nav class="tabs" role="tablist" aria-label="Views">
+  <button role="tab" id="tab-fighter" aria-controls="view-fighter" aria-selected="true">Fighter</button>
+  <button role="tab" id="tab-plan" aria-controls="view-plan" aria-selected="false" tabindex="-1">Plan</button>
+  <button role="tab" id="tab-match" aria-controls="view-match" aria-selected="false" tabindex="-1">Match</button>
+  <button role="tab" id="tab-lab" aria-controls="view-lab" aria-selected="false" tabindex="-1">Lab</button>
+</nav>
+<main>
+  <!-- ================= FIGHTER ================= -->
+  <section class="view" id="view-fighter" role="tabpanel" aria-labelledby="tab-fighter">
+    <div class="card">
+      <div class="row">
+        <label>Name <input type="text" id="f-name" maxlength="40"></label>
+        <label>Start from a preset
+          <select id="f-preset"></select>
+        </label>
+        <button id="f-load-preset">Load preset</button>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="row" style="justify-content:space-between"><h2>Attributes</h2><span class="budget" id="f-attr-budget"></span></div>
+        <div id="f-attributes"></div>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between"><h2>Technique</h2><span class="budget" id="f-tech-budget"></span></div>
+        <div id="f-techniques"></div>
+      </div>
+    </div>
+    <div class="card">
+      <fieldset>
+        <legend>Archetype</legend>
+        <div class="archetypes" id="f-archetypes"></div>
+      </fieldset>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <fieldset>
+          <legend>When caught in a submission</legend>
+          <div class="row" id="f-tap"></div>
+          <p class="small muted" id="f-tap-note"></p>
+        </fieldset>
+      </div>
+      <div class="card">
+        <h2>Look</h2>
+        <div class="row">
+          <label>Gi colour <input type="color" id="f-gi"></label>
+          <label>Belt <select id="f-belt"></select></label>
+        </div>
+        <p class="small muted">Cosmetic only.</p>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Save, import and export</h2>
+      <div class="row">
+        <button id="f-save">Save fighter with current plan</button>
+        <button id="f-export">Export fighter as JSON</button>
+        <button id="f-import">Import fighter from JSON</button>
+      </div>
+      <p class="small muted" id="f-io-status" role="status"></p>
+      <label class="visually-hidden" for="f-json">Fighter JSON</label>
+      <textarea id="f-json" placeholder="Exported JSON appears here. Paste JSON here to import."></textarea>
+      <h3>Saved fighters</h3>
+      <ul id="f-saved" class="small"></ul>
+    </div>
+  </section>
+
+  <!-- ================= PLAN ================= -->
+  <section class="view" id="view-plan" role="tabpanel" aria-labelledby="tab-plan" hidden>
+    <div class="card">
+      <div class="row">
+        <label>Plan name <input type="text" id="p-name" maxlength="40"></label>
+        <label>Start from a preset <select id="p-preset"></select></label>
+        <button id="p-load-preset">Load preset</button>
+      </div>
+      <p class="small muted">Each tick your fighter tries the first step, from the current one onward, whose condition holds and whose technique is possible right now. If the main technique is not possible, the backup is tried. A step is dropped after its maximum attempts.</p>
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>Steps</h2><span class="small muted" id="p-count"></span></div>
+      <ol class="steps" id="p-steps"></ol>
+      <div class="row"><button id="p-add">Add step</button><button id="p-export">Export plan as JSON</button><button id="p-import">Import plan from JSON</button></div>
+      <label class="visually-hidden" for="p-json">Plan JSON</label>
+      <textarea id="p-json" placeholder="Plan JSON" style="margin-top:8px"></textarea>
+      <p class="small muted" id="p-io-status" role="status"></p>
+    </div>
+    <div class="card">
+      <h2>Plan check</h2>
+      <p class="small muted" id="p-stamina"></p>
+      <ul class="warnings" id="p-warnings"></ul>
+    </div>
+  </section>
+
+  <!-- ================= MATCH ================= -->
+  <section class="view" id="view-match" role="tabpanel" aria-labelledby="tab-match" hidden>
+    <div class="card">
+      <div class="row">
+        <label>Opponent <select id="m-opponent"></select></label>
+        <label>Seed <input type="number" id="m-seed" min="0" step="1" style="width:130px"></label>
+        <button id="m-random">New seed</button>
+        <button class="primary" id="m-run">Run match</button>
+      </div>
+      <p class="small muted" id="m-you"></p>
+    </div>
+    <div id="m-output" hidden>
+      <div class="result-banner" id="m-result" role="status"></div>
+      <div class="card">
+        <div class="scoreboard" id="m-board"></div>
+        <div class="timeline">
+          <button id="m-first" aria-label="Go to start">⏮</button>
+          <button id="m-prev" aria-label="Previous tick">◀ Step</button>
+          <button id="m-next" aria-label="Next tick">Step ▶</button>
+          <button id="m-play">Play</button>
+          <button id="m-all">Show all</button>
+          <label class="visually-hidden" for="m-scrub">Tick</label>
+          <input type="range" id="m-scrub" min="0" max="0" value="0">
+          <span class="small muted" id="m-tick-label"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>What happened</h2>
+        <ol class="log" id="m-log" aria-live="polite"></ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LAB ================= -->
+  <section class="view" id="view-lab" role="tabpanel" aria-labelledby="tab-lab" hidden>
+    <div class="card">
+      <fieldset>
+        <legend>Experiment</legend>
+        <div class="row">
+          <label><span><input type="radio" name="l-mode" value="matrix" checked> Round robin of every preset</span></label>
+          <label><span><input type="radio" name="l-mode" value="vs"> One fighter against chosen opponents</span></label>
+        </div>
+      </fieldset>
+      <div id="l-matrix-opts" class="row small" style="margin-top:8px">
+        <label><span><input type="checkbox" id="l-include-mine"> Include my fighter and plan</span></label>
+        <label><span><input type="checkbox" id="l-include-saved"> Include saved fighters</span></label>
+      </div>
+      <div id="l-vs-opts" hidden style="margin-top:8px">
+        <div class="row"><label>Fighter under test <select id="l-subject"></select></label></div>
+        <p class="small muted" style="margin:8px 0 4px">Opponents</p>
+        <div class="row small" id="l-opponents"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label>Matches <select id="l-n">
+          <option>1000</option><option>2000</option><option selected>5000</option><option>10000</option><option>20000</option><option>50000</option>
+        </select></label>
+        <label>Seed <input type="number" id="l-seed" min="0" step="1" style="width:130px"></label>
+        <button class="primary" id="l-run">Run</button>
+        <button id="l-cancel" disabled>Cancel</button>
+        <button id="l-csv" disabled>Export CSV</button>
+      </div>
+      <div style="margin-top:10px">
+        <progress id="l-progress" max="1" value="0" aria-label="Batch progress"></progress>
+        <p class="small muted" id="l-status" role="status"></p>
+      </div>
+    </div>
+    <div id="l-results"></div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between"><h2>Self-tests</h2><button id="l-tests">Run self-tests</button></div>
+      <ul class="tests small" id="l-test-results"></ul>
+    </div>
+  </section>
+</main>
 
 <script id="bjj-engine">
 'use strict';
@@ -1299,10 +1638,13 @@ function validatePlan(plan, fighter) {
         POSITIONS[a.fromList[0]].name.toLowerCase() + ', which the previous step cannot lead to.' });
     }
     // Setup check: every required grip/flag must come from an earlier step or from the move into this position.
+    // A backup may also rely on its own step's main technique (e.g. build frames, else shrimp).
     for (const x of [a, fb]) {
       if (!x) continue;
-      const missing = [...x.requires.grips.filter(g => !provided.grips.has(g)).map(g => GRIPS[g]),
-        ...x.requires.flags.filter(f => !provided.flags.has(f)).map(f => FLAGS[f])];
+      const own = x === fb ? a : null;
+      const has = (kind, item) => provided[kind].has(item) || (own && own.grants[kind].includes(item));
+      const missing = [...x.requires.grips.filter(g => !has('grips', g)).map(g => GRIPS[g]),
+        ...x.requires.flags.filter(f => !has('flags', f)).map(f => FLAGS[f])];
       if (missing.length) {
         warnings.push({ step: k, kind: x.category === 'submission' ? 'no_setup' : 'missing_grip',
           msg: 'Step ' + (k + 1) + ' (' + x.name + ') needs ' + missing.join(' and ') +
@@ -1508,6 +1850,706 @@ return {
 };
 })();
 if (typeof globalThis !== 'undefined') globalThis.BJJ = BJJ;
+</script>
+<script id="bjj-ui">
+'use strict';
+/* =====================================================================
+ * UI: renders engine data. All wording shown to players lives here.
+ * ===================================================================== */
+(function () {
+const B = BJJ;
+const $ = id => document.getElementById(id);
+
+/* ---------------- tiny DOM helper (textContent only, no innerHTML) ---------------- */
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    const v = attrs[k];
+    if (v === null || v === undefined || v === false) continue;
+    if (k === 'class') n.className = v;
+    else if (k === 'style') n.style.cssText = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else if (k in n && k !== 'list') n[k] = v;
+    else n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) n.append(c.nodeType ? c : String(c));
+  return n;
+}
+const clear = n => { while (n.firstChild) n.removeChild(n.firstChild); return n; };
+const pct = (x, d) => (100 * x).toFixed(d === undefined ? 0 : d) + '%';
+const signed = x => (x >= 0 ? '+' : '−') + Math.abs(100 * x).toFixed(1) + '%';
+const clock = tick => { const s = tick * B.CONFIG.match.secondsPerTick; return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const clone = o => JSON.parse(JSON.stringify(o));
+const lower = s => s.charAt(0).toLowerCase() + s.slice(1);
+const BELT_COLOURS = { white: '#f2f2f2', blue: '#2356c7', purple: '#6b3fa0', brown: '#6b4226', black: '#111111' };
+
+/* ---------------- storage (optional, always guarded) ---------------- */
+const STORAGE_KEY = 'bjj-plan-sim.v1';
+function loadStore() {
+  try { const raw = window.localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function saveStore() {
+  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); } catch (e) { /* storage unavailable: keep working in memory */ }
+}
+
+/* ---------------- sanitising imported data ---------------- */
+function sanitiseFighter(o) {
+  if (!o || typeof o !== 'object') throw new Error('Not a fighter object.');
+  const b = B.CONFIG.budget;
+  const num = v => Math.max(b.min, Math.min(b.max, Math.round(Number(v)) || b.min));
+  const f = {
+    name: String(o.name || 'Imported fighter').slice(0, 40),
+    archetype: B.ARCHETYPES[o.archetype] ? o.archetype : 'guard_player',
+    giColor: /^#[0-9a-f]{6}$/i.test(o.giColor) ? o.giColor : '#f4f1ea',
+    beltRank: B.BELTS.includes(o.beltRank) ? o.beltRank : 'white',
+    tapPolicy: B.TAP_POLICIES[o.tapPolicy] ? o.tapPolicy : 'balanced',
+    attributes: {}, techniques: {},
+  };
+  for (const k of B.ATTRIBUTE_KEYS) f.attributes[k] = num(o.attributes && o.attributes[k]);
+  for (const k of B.TECHNIQUE_KEYS) f.techniques[k] = num(o.techniques && o.techniques[k]);
+  const v = B.validateFighter(f);
+  const err = v.issues.find(i => i.level === 'error');
+  if (err) throw new Error(err.msg + '.');
+  return f;
+}
+function sanitisePlan(o) {
+  if (!o || !Array.isArray(o.steps)) throw new Error('A plan needs a "steps" list.');
+  const steps = o.steps.slice(0, B.CONFIG.match.maxPlanSteps).map((s, k) => {
+    if (!s || !B.ACTIONS[s.primary]) throw new Error('Step ' + (k + 1) + ' has an unknown technique.');
+    return {
+      primary: s.primary,
+      fallback: s.fallback && B.ACTIONS[s.fallback] ? s.fallback : null,
+      condition: B.CONDITIONS[s.condition] ? s.condition : 'always',
+      maxAttempts: Math.max(1, Math.min(3, Math.round(Number(s.maxAttempts)) || 1)),
+    };
+  });
+  return { name: String(o.name || 'Imported plan').slice(0, 40), steps };
+}
+
+/* ---------------- app state ---------------- */
+const stored = loadStore();
+const app = {
+  fighter: clone(B.PRESET_FIGHTERS.closed_guard),
+  plan: clone(B.PRESET_PLANS.armbar),
+  saved: [],
+  seed: 1,
+  labSeed: 2026,
+  opponent: 'preset:pressure',
+};
+if (stored) {
+  try { if (stored.fighter) app.fighter = sanitiseFighter(stored.fighter); } catch (e) { /* keep default */ }
+  try { if (stored.plan) app.plan = sanitisePlan(stored.plan); } catch (e) { /* keep default */ }
+  if (Array.isArray(stored.saved)) {
+    for (const s of stored.saved) {
+      try { app.saved.push({ id: String(s.id), fighter: sanitiseFighter(s.fighter), plan: sanitisePlan(s.plan) }); } catch (e) { /* skip broken */ }
+    }
+  }
+  if (Number.isFinite(stored.seed)) app.seed = stored.seed;
+  if (Number.isFinite(stored.labSeed)) app.labSeed = stored.labSeed;
+  if (typeof stored.opponent === 'string') app.opponent = stored.opponent;
+}
+
+/* ---------------- tabs ---------------- */
+const tabs = ['fighter', 'plan', 'match', 'lab'];
+function showTab(name, focus) {
+  for (const t of tabs) {
+    const on = t === name;
+    $('tab-' + t).setAttribute('aria-selected', on ? 'true' : 'false');
+    $('tab-' + t).tabIndex = on ? 0 : -1;
+    $('view-' + t).hidden = !on;
+  }
+  if (focus) $('tab-' + name).focus();
+  if (name === 'plan') renderPlan();
+  if (name === 'match') renderMatchSetup();
+  if (name === 'lab') renderLabSetup();
+}
+tabs.forEach((t, i) => {
+  const btn = $('tab-' + t);
+  btn.addEventListener('click', () => showTab(t));
+  btn.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      showTab(tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length], true);
+    }
+  });
+});
+
+/* ---------------- wording helpers ---------------- */
+function roleWord(role) { return B.ROLE_LABELS[role] || role; }
+function positionName(id) { return B.POSITIONS[id].name; }
+function describeRequirements(a) {
+  const need = [...a.requires.grips.map(g => B.GRIPS[g]), ...a.requires.flags.map(f => B.FLAGS[f])];
+  return need;
+}
+function describeResult(a) {
+  const bits = [];
+  if (a.category === 'submission') bits.push('ends the match if it lands (tightness ' + a.tightness + ' of 3)');
+  if (a.to) {
+    const p = B.POSITIONS[a.to];
+    const where = a.roleAfter === 'neutral' ? 'back on the feet'
+      : 'in ' + lower(p.name) + ', you ' + roleWord(a.roleAfter === 'self' ? p.roles[0] : p.roles[1]);
+    bits.push('puts you ' + where);
+  }
+  const gets = [...a.grants.grips.map(g => B.GRIPS[g]), ...a.grants.flags.map(f => B.FLAGS[f])];
+  if (gets.length) bits.push('gives you ' + gets.join(', '));
+  const strips = [...a.removes.grips.map(g => 'their ' + B.GRIPS[g]), ...a.removes.flags.map(f => B.FLAGS[f])];
+  if (strips.length) bits.push('removes ' + strips.join(', '));
+  if (a.points) bits.push('+' + a.points + ' points');
+  return bits;
+}
+function archetypeLines(key) {
+  const a = B.ARCHETYPES[key];
+  const lines = [];
+  for (const c in a.attack) lines.push((a.attack[c] > 0 ? 'Better at ' : 'Worse at ') + B.CATEGORY_LABELS[c] + ' (' + signed(a.attack[c]) + ')');
+  for (const c in a.defend) lines.push('Opponents\' ' + B.CATEGORY_LABELS[c] + ' are harder (' + signed(-a.defend[c]) + ')');
+  lines.push('At home in ' + a.favourite.map(p => lower(positionName(p))).join(', ') + ' (' + signed(B.CONFIG.chance.familiarityBonus) + ')');
+  return lines;
+}
+function actionOptions(select, selected, allowNone) {
+  clear(select);
+  if (allowNone) select.append(el('option', { value: '' }, 'No backup'));
+  const groups = {};
+  for (const a of B.ACTION_LIST) {
+    for (const f of a.fromList) {
+      const key = f + '|' + a.role;
+      (groups[key] = groups[key] || { pos: f, role: a.role, list: [] }).list.push(a);
+    }
+  }
+  for (const key in groups) {
+    const g = groups[key];
+    const og = el('optgroup', { label: positionName(g.pos) + ', ' + roleWord(g.role) });
+    for (const a of g.list) og.append(el('option', { value: a.id, selected: a.id === selected }, a.name));
+    select.append(og);
+  }
+  select.value = selected || '';
+}
+
+/* =====================================================================
+ * FIGHTER VIEW
+ * ===================================================================== */
+function statSlider(group, key) {
+  const f = app.fighter;
+  const pool = group === 'attributes' ? B.CONFIG.budget.attributes : B.CONFIG.budget.techniques;
+  const keys = group === 'attributes' ? B.ATTRIBUTE_KEYS : B.TECHNIQUE_KEYS;
+  const id = 'f-stat-' + key;
+  const out = el('output', { for: id }, String(f[group][key]));
+  const input = el('input', { type: 'range', id, min: B.CONFIG.budget.min, max: B.CONFIG.budget.max, step: 1, value: f[group][key] });
+  input.addEventListener('input', () => {
+    let v = Number(input.value);
+    const others = keys.reduce((s, k) => s + (k === key ? 0 : f[group][k]), 0);
+    if (others + v > pool) v = Math.max(B.CONFIG.budget.min, pool - others);
+    input.value = v;
+    f[group][key] = v;
+    out.textContent = String(v);
+    updateBudgets();
+    saveStore();
+  });
+  return el('div', { class: 'stat' }, el('label', { for: id }, B.STAT_LABELS[key]), input, out);
+}
+function updateBudgets() {
+  const v = B.validateFighter(app.fighter);
+  const set = (id, used, pool) => {
+    const n = $(id);
+    n.textContent = (pool - used) + ' of ' + pool + ' points left';
+    n.classList.toggle('over', used > pool);
+  };
+  set('f-attr-budget', v.attributePoints, B.CONFIG.budget.attributes);
+  set('f-tech-budget', v.techniquePoints, B.CONFIG.budget.techniques);
+}
+function renderFighter() {
+  const f = app.fighter;
+  $('f-name').value = f.name;
+  clear($('f-attributes')).append(...B.ATTRIBUTE_KEYS.map(k => statSlider('attributes', k)));
+  clear($('f-techniques')).append(...B.TECHNIQUE_KEYS.map(k => statSlider('techniques', k)));
+  const arch = clear($('f-archetypes'));
+  for (const key in B.ARCHETYPES) {
+    const a = B.ARCHETYPES[key];
+    const input = el('input', { type: 'radio', name: 'f-arch', value: key, checked: f.archetype === key,
+      onchange: () => { f.archetype = key; saveStore(); } });
+    arch.append(el('label', { class: 'archetype' }, input, el('strong', null, a.name),
+      el('div', { class: 'small muted' }, a.summary), el('ul', null, archetypeLines(key).map(l => el('li', null, l)))));
+  }
+  const tap = clear($('f-tap'));
+  for (const key in B.TAP_POLICIES) {
+    tap.append(el('label', null, el('span', null, el('input', { type: 'radio', name: 'f-tap', value: key, checked: f.tapPolicy === key,
+      onchange: () => { f.tapPolicy = key; renderTapNote(); saveStore(); } }), ' ' + B.TAP_POLICIES[key])));
+  }
+  renderTapNote();
+  $('f-gi').value = f.giColor;
+  const belt = clear($('f-belt'));
+  for (const b of B.BELTS) belt.append(el('option', { value: b, selected: f.beltRank === b }, b.charAt(0).toUpperCase() + b.slice(1)));
+  updateBudgets();
+  renderSaved();
+}
+function renderTapNote() {
+  const notes = {
+    tap_early: 'Taps as soon as a submission is locked in.',
+    balanced: 'Fights a submission when the odds of escaping are at least ' + pct(B.CONFIG.submission.balancedThreshold) + ', otherwise taps.',
+    never_tap: 'Always fights it. Failing still loses the match.',
+  };
+  $('f-tap-note').textContent = notes[app.fighter.tapPolicy];
+}
+function renderSaved() {
+  const ul = clear($('f-saved'));
+  if (!app.saved.length) { ul.append(el('li', { class: 'muted' }, 'Nothing saved yet.')); return; }
+  for (const s of app.saved) {
+    ul.append(el('li', null, s.fighter.name + ' with ' + s.plan.name + ' ',
+      el('button', { onclick: () => { app.fighter = clone(s.fighter); app.plan = clone(s.plan); saveStore(); renderFighter(); ioStatus('f-io-status', 'Loaded ' + s.fighter.name + '.'); } }, 'Load'), ' ',
+      el('button', { onclick: () => { app.saved = app.saved.filter(x => x !== s); saveStore(); renderSaved(); } }, 'Delete')));
+  }
+}
+function ioStatus(id, msg) { $(id).textContent = msg; }
+
+$('f-name').addEventListener('input', e => { app.fighter.name = e.target.value || 'Unnamed'; saveStore(); });
+$('f-gi').addEventListener('input', e => { app.fighter.giColor = e.target.value; saveStore(); });
+$('f-belt').addEventListener('change', e => { app.fighter.beltRank = e.target.value; saveStore(); });
+for (const key in B.PRESET_FIGHTERS) $('f-preset').append(el('option', { value: key }, B.PRESET_FIGHTERS[key].name));
+$('f-load-preset').addEventListener('click', () => { app.fighter = clone(B.PRESET_FIGHTERS[$('f-preset').value]); saveStore(); renderFighter(); });
+$('f-export').addEventListener('click', () => { $('f-json').value = JSON.stringify(app.fighter, null, 2); ioStatus('f-io-status', 'Fighter exported to the box below.'); });
+$('f-import').addEventListener('click', () => {
+  try { app.fighter = sanitiseFighter(JSON.parse($('f-json').value)); saveStore(); renderFighter(); ioStatus('f-io-status', 'Imported ' + app.fighter.name + '.'); }
+  catch (e) { ioStatus('f-io-status', 'Could not import: ' + e.message); }
+});
+$('f-save').addEventListener('click', () => {
+  app.saved.push({ id: 'saved-' + Date.now().toString(36), fighter: clone(app.fighter), plan: clone(app.plan) });
+  saveStore(); renderSaved();
+  ioStatus('f-io-status', 'Saved ' + app.fighter.name + ' with ' + app.plan.name + '. It is now available as an opponent.');
+});
+
+/* =====================================================================
+ * PLAN VIEW
+ * ===================================================================== */
+function actionSummary(a) {
+  if (!a) return null;
+  const need = describeRequirements(a);
+  const blocked = [...a.blockedBy.grips.map(g => B.GRIPS[g]), ...a.blockedBy.flags.map(f => B.FLAGS[f])];
+  return el('div', null,
+    el('b', null, a.name), ': from ' + a.fromList.map(p => lower(positionName(p))).join(' or ') + ', ' + roleWord(a.role),
+    need.length ? '; needs ' + need.join(' and ') : '',
+    blocked.length ? '; not possible while they have ' + blocked.join(' or ') : '',
+    '. ' + (describeResult(a).join(', ') || 'no change') + '.');
+}
+function renderPlan() {
+  const plan = app.plan;
+  $('p-name').value = plan.name;
+  const list = clear($('p-steps'));
+  plan.steps.forEach((st, k) => {
+    const primary = el('select', { id: 'p-primary-' + k });
+    actionOptions(primary, st.primary, false);
+    primary.addEventListener('change', () => { st.primary = primary.value; planChanged(); });
+    const fallback = el('select', { id: 'p-fallback-' + k });
+    actionOptions(fallback, st.fallback, true);
+    fallback.addEventListener('change', () => { st.fallback = fallback.value || null; planChanged(); });
+    const cond = el('select', { id: 'p-cond-' + k });
+    for (const c in B.CONDITIONS) cond.append(el('option', { value: c, selected: st.condition === c }, B.CONDITIONS[c]));
+    cond.addEventListener('change', () => { st.condition = cond.value; planChanged(); });
+    const tries = el('select', { id: 'p-tries-' + k });
+    for (const n of [1, 2, 3]) tries.append(el('option', { value: n, selected: st.maxAttempts === n }, String(n)));
+    tries.addEventListener('change', () => { st.maxAttempts = Number(tries.value); planChanged(); });
+    const move = (d) => { const j = k + d; [plan.steps[k], plan.steps[j]] = [plan.steps[j], plan.steps[k]]; planChanged(true, 'p-up-' + j); };
+    list.append(el('li', null,
+      el('div', { class: 'step-head' }, el('strong', null, 'Step ' + (k + 1)),
+        el('div', { class: 'icon-btns' },
+          el('button', { id: 'p-up-' + k, 'aria-label': 'Move step ' + (k + 1) + ' up', disabled: k === 0, onclick: () => move(-1) }, '↑'),
+          el('button', { 'aria-label': 'Move step ' + (k + 1) + ' down', disabled: k === plan.steps.length - 1, onclick: () => move(1) }, '↓'),
+          el('button', { 'aria-label': 'Remove step ' + (k + 1), onclick: () => { plan.steps.splice(k, 1); planChanged(true); } }, '✕'))),
+      el('div', { class: 'step-fields' },
+        el('label', { for: primary.id }, 'Technique', primary),
+        el('label', { for: fallback.id }, 'Backup', fallback),
+        el('label', { for: cond.id }, 'When', cond),
+        el('label', { for: tries.id }, 'Tries', tries)),
+      el('div', { class: 'step-info' }, actionSummary(B.ACTIONS[st.primary]),
+        st.fallback ? el('div', null, 'Backup: ', actionSummary(B.ACTIONS[st.fallback])) : null)));
+  });
+  $('p-count').textContent = plan.steps.length + ' of ' + B.CONFIG.match.maxPlanSteps + ' steps';
+  $('p-add').disabled = plan.steps.length >= B.CONFIG.match.maxPlanSteps;
+  renderPlanWarnings();
+}
+function renderPlanWarnings() {
+  const v = B.validatePlan(app.plan, app.fighter);
+  $('p-stamina').textContent = 'If every step used all its tries, the plan would cost ' + v.staminaCost +
+    ' stamina. ' + app.fighter.name + ' has ' + v.staminaBudget + '.';
+  const ul = clear($('p-warnings'));
+  if (!v.warnings.length) ul.append(el('li', { class: 'ok-note', style: 'background:none;padding:0' }, 'No problems found.'));
+  for (const w of v.warnings) ul.append(el('li', null, w.msg));
+}
+function planChanged(rerender, focusId) {
+  saveStore();
+  if (rerender) {
+    renderPlan();
+    if (focusId && $(focusId)) $(focusId).focus();
+  } else {
+    // Keep focus in the edited select: refresh only the info lines and warnings.
+    const infos = document.querySelectorAll('#p-steps .step-info');
+    app.plan.steps.forEach((st, k) => {
+      if (!infos[k]) return;
+      clear(infos[k]).append(actionSummary(B.ACTIONS[st.primary]));
+      if (st.fallback) infos[k].append(el('div', null, 'Backup: ', actionSummary(B.ACTIONS[st.fallback])));
+    });
+    renderPlanWarnings();
+  }
+}
+$('p-name').addEventListener('input', e => { app.plan.name = e.target.value || 'Plan'; saveStore(); });
+$('p-add').addEventListener('click', () => {
+  if (app.plan.steps.length >= B.CONFIG.match.maxPlanSteps) return;
+  app.plan.steps.push({ primary: 'st_collar', fallback: null, condition: 'always', maxAttempts: 2 });
+  planChanged(true, 'p-primary-' + (app.plan.steps.length - 1));
+});
+for (const key in B.PRESET_PLANS) $('p-preset').append(el('option', { value: key }, B.PRESET_PLANS[key].name));
+$('p-load-preset').addEventListener('click', () => { app.plan = clone(B.PRESET_PLANS[$('p-preset').value]); planChanged(true); });
+$('p-export').addEventListener('click', () => { $('p-json').value = JSON.stringify(app.plan, null, 2); ioStatus('p-io-status', 'Plan exported to the box above.'); });
+$('p-import').addEventListener('click', () => {
+  try { app.plan = sanitisePlan(JSON.parse($('p-json').value)); planChanged(true); ioStatus('p-io-status', 'Imported ' + app.plan.name + '.'); }
+  catch (e) { ioStatus('p-io-status', 'Could not import: ' + e.message); }
+});
+
+/* =====================================================================
+ * MATCH VIEW
+ * ===================================================================== */
+function opponentChoices() {
+  const out = B.presetEntries().map(e => ({ key: 'preset:' + e.id, group: 'Presets', label: e.label, fighter: e.fighter, plan: e.plan }));
+  for (const s of app.saved) out.push({ key: 'saved:' + s.id, group: 'Saved', label: s.fighter.name + ' (' + s.plan.name + ')', fighter: s.fighter, plan: s.plan });
+  return out;
+}
+function renderMatchSetup() {
+  const sel = clear($('m-opponent'));
+  const groups = {};
+  for (const o of opponentChoices()) {
+    if (!groups[o.group]) { groups[o.group] = el('optgroup', { label: o.group }); sel.append(groups[o.group]); }
+    groups[o.group].append(el('option', { value: o.key }, o.label));
+  }
+  if (!opponentChoices().some(o => o.key === app.opponent)) app.opponent = 'preset:pressure';
+  sel.value = app.opponent;
+  $('m-seed').value = app.seed;
+  $('m-you').textContent = 'You: ' + app.fighter.name + ' (' + B.ARCHETYPES[app.fighter.archetype].name.toLowerCase() + ') running "' + app.plan.name + '", ' + app.plan.steps.length + ' steps.';
+}
+$('m-opponent').addEventListener('change', e => { app.opponent = e.target.value; saveStore(); });
+$('m-seed').addEventListener('change', e => { app.seed = Math.max(0, Math.floor(Number(e.target.value) || 0)); e.target.value = app.seed; saveStore(); });
+$('m-random').addEventListener('click', () => { app.seed = Math.floor(Math.random() * 1e9); $('m-seed').value = app.seed; saveStore(); });
+
+const view = { result: null, names: ['', ''], fighters: null, cur: 0, timer: null };
+$('m-run').addEventListener('click', () => {
+  const opp = opponentChoices().find(o => o.key === $('m-opponent').value);
+  app.seed = Math.max(0, Math.floor(Number($('m-seed').value) || 0));
+  saveStore();
+  const fighters = [app.fighter, opp.fighter];
+  view.fighters = fighters;
+  view.names = [app.fighter.name, opp.fighter.name === app.fighter.name ? opp.fighter.name + ' (opponent)' : opp.fighter.name];
+  view.result = B.runMatch(fighters, [app.plan, opp.plan], app.seed);
+  $('m-output').hidden = false;
+  $('m-scrub').max = view.result.log.length;
+  stopPlay();
+  setTick(0);
+  const r = view.result;
+  const winner = view.names[r.winner];
+  const how = {
+    submission: () => 'by submission (' + lower(B.ACTIONS[r.finish.actionId].name) + (r.finish.tapped ? ', tapped' : ', caught while resisting') + ') at ' + clock(r.ticks),
+    points: () => 'on points, ' + r.points[r.winner] + ' to ' + r.points[1 - r.winner],
+    advantages: () => 'on advantages (' + r.adv[r.winner] + ' to ' + r.adv[1 - r.winner] + ') with points level',
+    stamina: () => 'on remaining stamina, with points and advantages level',
+    coin: () => 'by referee decision (coin flip): everything was level',
+  }[r.method]();
+  $('m-result').textContent = winner + ' wins ' + how + '.';
+});
+
+function stateAt(k) {
+  const r = view.result;
+  if (k > 0) return r.log[k - 1].state;
+  return { pos: 'standing', dom: null, roles: ['neutral', 'neutral'], grips: [[], []], flags: [[], []],
+    stamina: r.maxStamina.slice(), maxStamina: r.maxStamina.slice(), points: [0, 0], adv: [0, 0], ptr: [0, 0] };
+}
+function fighterBox(i, st) {
+  const f = view.fighters[i];
+  const frac = st.stamina[i] / st.maxStamina[i];
+  const planLen = view.result.plans[i].steps.length;
+  const holding = [...st.grips[i].map(g => B.GRIPS[g]), ...st.flags[i].map(x => B.FLAGS[x])];
+  return el('div', { class: 'fighter-box' },
+    el('h4', null, el('span', { class: 'gi-dot', style: 'background:' + f.giColor, 'aria-hidden': 'true' }), view.names[i],
+      el('span', { class: 'belt', style: 'border-color:' + (BELT_COLOURS[f.beltRank] || '#999') }, f.beltRank + ' belt')),
+    el('div', { class: 'score', 'aria-label': st.points[i] + ' points' }, String(st.points[i])),
+    el('div', { class: 'small muted' }, st.adv[i] + ' advantage' + (st.adv[i] === 1 ? '' : 's') + ', ' + roleWord(st.roles[i])),
+    el('div', { class: 'small', style: 'margin-top:6px' }, 'Stamina ' + Math.round(st.stamina[i]) + ' / ' + st.maxStamina[i]),
+    el('div', { class: 'bar', role: 'img', 'aria-label': 'Stamina ' + pct(frac) }, el('span', { style: 'width:' + pct(frac, 1) + (frac < B.CONFIG.stamina.fatigueThreshold ? ';background:var(--bar-2)' : '') })),
+    el('div', { class: 'small' }, 'Plan: ' + (st.ptr[i] >= planLen ? 'all steps used' : 'on step ' + (st.ptr[i] + 1) + ' of ' + planLen)),
+    el('div', { class: 'chips' }, holding.length ? holding.map(h => el('span', { class: 'chip' }, h)) : el('span', { class: 'small muted' }, 'no grips')));
+}
+function setTick(k) {
+  const r = view.result;
+  view.cur = Math.max(0, Math.min(r.log.length, k));
+  const st = stateAt(view.cur);
+  const p = B.POSITIONS[st.pos];
+  const where = p.kind === 'neutral' ? 'Both standing' : view.names[st.dom] + ' ' + roleWord(p.roles[0]);
+  clear($('m-board')).append(fighterBox(0, st),
+    el('div', { class: 'center-box' }, el('div', { class: 'clock' }, clock(view.cur)), el('div', null, el('strong', null, p.name)), el('div', { class: 'small muted' }, where)),
+    fighterBox(1, st));
+  $('m-scrub').value = view.cur;
+  $('m-tick-label').textContent = 'Tick ' + view.cur + ' of ' + r.log.length;
+  $('m-prev').disabled = view.cur === 0;
+  $('m-first').disabled = view.cur === 0;
+  $('m-next').disabled = view.cur >= r.log.length;
+  renderLog();
+}
+function renderLog() {
+  const ol = clear($('m-log'));
+  const r = view.result;
+  for (let k = 0; k < view.cur; k++) ol.append(logEntry(r.log[k], k === view.cur - 1));
+  if (!view.cur) ol.append(el('li', { class: 'muted' }, 'Press Step or Play to walk through the match.'));
+  const last = ol.lastElementChild;
+  if (last && view.timer) last.scrollIntoView({ block: 'nearest' });
+}
+function sourceText(it, who) {
+  if (!it) return who + ' has nothing to do and holds position';
+  const a = B.ACTIONS[it.actionId];
+  const why = it.source === 'plan' ? 'plan step ' + (it.step + 1)
+    : it.source === 'fallback' ? 'backup for step ' + (it.step + 1)
+    : 'no plan step fits, so instinct';
+  return who + ' wants to ' + lower(a.name) + ' (' + why + ')';
+}
+function outcomeText(at, names) {
+  const d = names[1 - at.actor];
+  switch (at.outcome) {
+    case 'success':
+      if (at.sub) {
+        if (at.sub.decision === 'tap') return 'Locked in. ' + d + ' taps.';
+        return 'Locked in. ' + d + ' fights it (' + pct(at.sub.resistChance) + ' to escape, rolled ' + pct(at.sub.roll) + ') and ' + (at.sub.survived ? 'survives.' : 'is caught.');
+      }
+      return 'It works.';
+    case 'partial': return 'Misses, but a grip is taken on the way.';
+    case 'reversal': return d + ' counters with ' + lower(B.ACTIONS[at.counterId].name) + '.';
+    default: return 'It fails.';
+  }
+}
+function breakdown(c) {
+  const rows = [['Base chance', c.base], ['Attributes and technique', c.attr], ['Archetype', c.archetype],
+    ['Stamina', c.stamina], ['Position familiarity', c.familiarity], ['Defender reacting', c.reaction]];
+  return el('details', { class: 'breakdown' }, el('summary', null, 'Why ' + pct(c.total) + '?'),
+    el('table', null, el('tbody', null,
+      rows.map(([k, v]) => el('tr', null, el('td', null, k), el('td', null, k === 'Base chance' ? pct(v, 1) : signed(v)))),
+      el('tr', null, el('td', null, el('strong', null, 'Total' + (c.raw !== c.total ? ' (capped)' : ''))), el('td', null, el('strong', null, pct(c.total, 1)))))));
+}
+function eventText(ev, names) {
+  const who = names[ev.who];
+  const a = ev.actionId ? B.ACTIONS[ev.actionId] : null;
+  switch (ev.type) {
+    case 'move': {
+      const p = B.POSITIONS[ev.to];
+      return p.kind === 'neutral' ? 'Back on the feet.' : 'Now in ' + lower(p.name) + ', ' + names[ev.dom] + ' ' + roleWord(p.roles[0]) + '.';
+    }
+    case 'points': return '+' + ev.amount + ' points to ' + who + ' for ' + lower(a.name) + '.';
+    case 'advantage': return 'Advantage to ' + who + ' for stopping a close ' + lower(a.name) + '.';
+    case 'plan_advance': return who + '\'s plan: step ' + (ev.step + 1) + ' done.';
+    case 'plan_give_up': return who + ' gives up on step ' + (ev.step + 1) + ' and moves on.';
+    case 'plan_skip_done': return who + ' already has what step ' + (ev.step + 1) + ' wanted, so skips it.';
+    case 'intent_lost': return who + ' lost the grip needed for ' + lower(a.name) + '.';
+    case 'sub_survived': return who + ' survives the ' + lower(a.name) + '.';
+    case 'submission': return who + ' wins by ' + lower(a.name) + '.';
+    default: return ev.type;
+  }
+}
+function logEntry(e, current) {
+  const names = view.names;
+  const p = B.POSITIONS[e.pos];
+  const where = p.kind === 'neutral' ? 'standing' : lower(p.name) + ', ' + names[e.dom] + ' ' + roleWord(p.roles[0]);
+  const li = el('li', { class: current ? 'current' : null },
+    el('div', { class: 'when' }, clock(e.tick) + ' to ' + clock(e.tick + 1) + ' · ' + where),
+    el('div', { class: 'line small muted' }, sourceText(e.intents[0], names[0]) + '. ' + sourceText(e.intents[1], names[1]) + '.'));
+  if (e.contest) {
+    const w = e.contest.winner;
+    li.append(el('div', { class: 'line small muted' }, 'Both went for it; ' + names[w] + ' got there first (' +
+      e.contest.initiative[w].toFixed(2) + ' against ' + e.contest.initiative[1 - w].toFixed(2) + '). ' + names[1 - w] + ' defends instead.'));
+  }
+  for (const at of e.attempts) {
+    const a = B.ACTIONS[at.actionId];
+    li.append(el('div', { class: 'line' }, el('strong', null, names[at.actor]), ' tries ' + lower(a.name) + ': ' + pct(at.chance.total) +
+      ' chance, rolled ' + pct(at.roll) + '. ', el('span', { class: 'outcome-' + at.outcome }, outcomeText(at, names))), breakdown(at.chance));
+  }
+  if (!e.attempts.length) li.append(el('div', { class: 'line muted' }, 'Nobody commits; both catch their breath.'));
+  for (const ev of e.events) li.append(el('div', { class: 'event muted' }, eventText(ev, names)));
+  return li;
+}
+function stopPlay() { if (view.timer) { clearInterval(view.timer); view.timer = null; } $('m-play').textContent = 'Play'; }
+$('m-first').addEventListener('click', () => { stopPlay(); setTick(0); });
+$('m-prev').addEventListener('click', () => { stopPlay(); setTick(view.cur - 1); });
+$('m-next').addEventListener('click', () => { stopPlay(); setTick(view.cur + 1); });
+$('m-all').addEventListener('click', () => { stopPlay(); setTick(view.result.log.length); });
+$('m-scrub').addEventListener('input', e => { stopPlay(); setTick(Number(e.target.value)); });
+$('m-play').addEventListener('click', () => {
+  if (view.timer) { stopPlay(); return; }
+  if (view.cur >= view.result.log.length) setTick(0);
+  $('m-play').textContent = 'Pause';
+  view.timer = setInterval(() => {
+    if (view.cur >= view.result.log.length) { stopPlay(); return; }
+    setTick(view.cur + 1);
+  }, 450);
+});
+
+/* =====================================================================
+ * LAB VIEW
+ * ===================================================================== */
+const lab = { running: false, cancel: false, summary: null, mode: 'matrix' };
+function myEntry() { return { id: 'mine', label: app.fighter.name + ' (mine): ' + app.plan.name, fighter: app.fighter, plan: app.plan }; }
+function savedEntries() { return app.saved.map(s => ({ id: s.id, label: s.fighter.name + ': ' + s.plan.name, fighter: s.fighter, plan: s.plan })); }
+function allLabEntries() { return [myEntry(), ...B.presetEntries(), ...savedEntries()]; }
+function renderLabSetup() {
+  $('l-seed').value = app.labSeed;
+  const subj = clear($('l-subject'));
+  const prev = subj.dataset.value || 'mine';
+  for (const e of allLabEntries()) subj.append(el('option', { value: e.id, selected: e.id === prev }, e.label));
+  const opp = clear($('l-opponents'));
+  for (const e of [...B.presetEntries(), ...savedEntries()]) {
+    opp.append(el('label', null, el('span', null, el('input', { type: 'checkbox', value: e.id, checked: true, class: 'l-opp' }), ' ' + e.label)));
+  }
+}
+$('l-subject').addEventListener('change', e => { e.target.dataset.value = e.target.value; });
+for (const r of document.querySelectorAll('input[name="l-mode"]')) {
+  r.addEventListener('change', () => {
+    lab.mode = document.querySelector('input[name="l-mode"]:checked').value;
+    $('l-vs-opts').hidden = lab.mode !== 'vs';
+    $('l-matrix-opts').hidden = lab.mode !== 'matrix';
+  });
+}
+$('l-seed').addEventListener('change', e => { app.labSeed = Math.max(0, Math.floor(Number(e.target.value) || 0)); e.target.value = app.labSeed; saveStore(); });
+$('l-cancel').addEventListener('click', () => { lab.cancel = true; });
+$('l-run').addEventListener('click', runLab);
+
+async function runLab() {
+  if (lab.running) return;
+  const total = Number($('l-n').value);
+  const seed = Math.max(0, Math.floor(Number($('l-seed').value) || 0));
+  let entries, jobs;
+  if (lab.mode === 'matrix') {
+    entries = B.presetEntries();
+    if ($('l-include-mine').checked) entries.unshift(myEntry());
+    if ($('l-include-saved').checked) entries.push(...savedEntries());
+    jobs = B.planJobs('matrix', entries.length, total);
+  } else {
+    const all = allLabEntries();
+    const subject = all.find(e => e.id === $('l-subject').value) || all[0];
+    const oppIds = [...document.querySelectorAll('.l-opp:checked')].map(c => c.value);
+    const opps = all.filter(e => oppIds.includes(e.id) && e.id !== subject.id);
+    if (!opps.length) { $('l-status').textContent = 'Pick at least one opponent.'; return; }
+    entries = [subject, ...opps];
+    jobs = B.planJobs('vs', entries.length, total, 0, opps.map((_, i) => i + 1));
+  }
+  if (!jobs.length) { $('l-status').textContent = 'Need at least two fighters.'; return; }
+  lab.running = true; lab.cancel = false;
+  $('l-run').disabled = true; $('l-cancel').disabled = false; $('l-csv').disabled = true;
+  const batch = B.newBatch(entries);
+  const chunk = B.CONFIG.lab.chunkSize;
+  const t0 = performance.now();
+  let k = 0;
+  for (; k < jobs.length; k++) {
+    B.runJob(batch, jobs, k, seed);
+    if (k % chunk === chunk - 1) {
+      $('l-progress').value = (k + 1) / jobs.length;
+      $('l-status').textContent = (k + 1).toLocaleString() + ' of ' + jobs.length.toLocaleString() + ' matches';
+      await new Promise(r => setTimeout(r, 0));
+      if (lab.cancel) { k++; break; }
+    }
+  }
+  const secs = (performance.now() - t0) / 1000;
+  $('l-progress').value = k / jobs.length;
+  $('l-status').textContent = (lab.cancel ? 'Cancelled after ' : 'Finished ') + k.toLocaleString() + ' matches in ' + secs.toFixed(1) + ' s.';
+  lab.summary = B.summariseBatch(batch);
+  lab.summary.mode = lab.mode;
+  lab.running = false;
+  $('l-run').disabled = false; $('l-cancel').disabled = true; $('l-csv').disabled = false;
+  renderLabResults(lab.summary);
+}
+
+function cellColour(v) {
+  if (v === null) return '';
+  const strength = Math.min(1, Math.abs(v - 0.5) / 0.3);
+  const colour = v >= 0.5 ? 'var(--win)' : 'var(--loss)';
+  return 'background: color-mix(in srgb, ' + colour + ' ' + Math.round(strength * 55) + '%, var(--surface));';
+}
+function renderLabResults(sum) {
+  const out = clear($('l-results'));
+  const m = sum.methods, n = sum.matches || 1;
+  const decided = sum.methods.points, ties = m.advantages + m.stamina + m.coin;
+  const dominant = sum.rows.filter(r => r.dominant);
+  out.append(el('div', { class: 'card' },
+    el('h2', null, 'Summary'),
+    el('p', null, sum.matches.toLocaleString() + ' matches. ' + pct(m.submission / n) + ' ended by submission, ' + pct(decided / n) +
+      ' on points, ' + pct(ties / n) + ' with points level (decided by advantages, stamina or a coin flip). Average match length ' + clock(Math.round(sum.avgTicks)) + '.'),
+    dominant.length
+      ? el('p', { class: 'flag' }, 'Above ' + pct(B.CONFIG.lab.dominanceThreshold) + ' against the field: ' + dominant.map(r => r.entry.label).join(', ') + '.')
+      : el('p', { class: 'ok-note' }, 'No fighter is above ' + pct(B.CONFIG.lab.dominanceThreshold) + ' against the field.')));
+
+  const table = el('table', { class: 'data' },
+    el('thead', null, el('tr', null, ['Fighter and plan', 'Win %', '95% range', 'Subs', 'Points', 'Level', 'Length', 'Plan stalls', 'Plan done', ''].map(h => el('th', { scope: 'col' }, h)))),
+    el('tbody', null, sum.rows.filter(r => r.games).map(r => el('tr', null,
+      el('td', null, r.entry.label),
+      el('td', null, pct(r.winRate, 1)),
+      el('td', null, pct(r.ci.lo, 1) + ' to ' + pct(r.ci.hi, 1)),
+      el('td', null, pct(r.submissionShare)),
+      el('td', null, pct(r.decisionShare)),
+      el('td', null, pct(r.tieShare)),
+      el('td', null, clock(Math.round(r.avgTicks))),
+      el('td', null, clock(Math.round(r.avgStallTick))),
+      el('td', null, pct(r.finishedPlanShare)),
+      el('td', null, r.dominant ? el('span', { class: 'flag' }, 'Too strong') : '')))));
+  out.append(el('div', { class: 'card' }, el('h2', null, 'Win rates'),
+    el('p', { class: 'small muted' }, 'Win % is against every other fighter in the run, mirror matches excluded. Subs, Points and Level are the share of each fighter\'s matches that ended by submission, on points, or with points level. Plan stalls is the average match time of the last step the plan completed.'),
+    el('div', { class: 'table-wrap' }, table)));
+
+  const entries = sum.rows.map(r => r.entry);
+  const matrix = el('table', { class: 'data matrix' },
+    el('caption', { class: 'visually-hidden' }, 'Row fighter win rate against column fighter'),
+    el('thead', null, el('tr', null, el('th', { scope: 'col' }, 'Row beats column'), entries.map(e => el('th', { scope: 'col' }, e.label)))),
+    el('tbody', null, entries.map((e, i) => el('tr', null, el('th', { scope: 'row', style: 'text-align:left' }, e.label),
+      sum.matrix[i].map(v => el('td', { class: 'cell', style: cellColour(v) }, v === null ? '–' : pct(v)))))));
+  out.append(el('div', { class: 'card' }, el('h2', null, 'Matchups'),
+    el('p', { class: 'small muted' }, 'Green cells: the row fighter wins more often. Red: loses more often.'),
+    el('div', { class: 'table-wrap' }, matrix)));
+
+  const maxShare = Math.max(...sum.visits.map(v => v.share), 0.0001);
+  const hist = el('div', { class: 'hist' });
+  for (const v of sum.visits) {
+    const over = v.share > 0.35;
+    hist.append(el('span', null, positionName(v.pos)),
+      el('div', { class: 'bar', role: 'img', 'aria-label': pct(v.share, 1) }, el('span', { class: over ? 'over' : null, style: 'width:' + pct(v.share / maxShare, 1) })),
+      el('span', { style: 'text-align:right' + (v.ticks ? '' : ';color:var(--bad)') }, v.ticks ? pct(v.share, 1) : 'never'));
+  }
+  out.append(el('div', { class: 'card' }, el('h2', null, 'Where the time went'),
+    el('p', { class: 'small muted' }, 'Share of all ticks spent in each position. Red bars are above 35%.'), hist));
+}
+
+function csvCell(v) { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+$('l-csv').addEventListener('click', () => {
+  const sum = lab.summary;
+  if (!sum) return;
+  const lines = [];
+  lines.push(['entry', 'games', 'wins', 'win_rate', 'ci_low', 'ci_high', 'submission_share', 'points_share', 'level_share', 'avg_ticks', 'avg_stall_tick', 'finished_plan_share', 'dominant'].join(','));
+  for (const r of sum.rows) lines.push([r.entry.label, r.games, r.wins, r.winRate.toFixed(4), r.ci.lo.toFixed(4), r.ci.hi.toFixed(4),
+    r.submissionShare.toFixed(4), r.decisionShare.toFixed(4), r.tieShare.toFixed(4), r.avgTicks.toFixed(2), r.avgStallTick.toFixed(2),
+    r.finishedPlanShare.toFixed(4), r.dominant].map(csvCell).join(','));
+  lines.push('');
+  lines.push(['row_beats_column', ...sum.rows.map(r => r.entry.label)].map(csvCell).join(','));
+  sum.matrix.forEach((row, i) => lines.push([sum.rows[i].entry.label, ...row.map(v => v === null ? '' : v.toFixed(4))].map(csvCell).join(',')));
+  lines.push('');
+  lines.push('position,ticks,share');
+  for (const v of sum.visits) lines.push([v.pos, v.ticks, v.share.toFixed(4)].join(','));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = el('a', { href: url, download: 'bjj-lab-results.csv' });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+$('l-tests').addEventListener('click', () => {
+  const ul = clear($('l-test-results'));
+  const results = [...B.runDataSelfTests(), ...B.runEngineSelfTests(300)];
+  for (const r of results) ul.append(el('li', { class: r.ok ? 'pass' : 'fail' }, (r.ok ? 'Pass: ' : 'Fail: ') + r.name + (r.ok ? '' : ' (' + r.detail + ')')));
+});
+
+/* ---------------- start ---------------- */
+renderFighter();
+renderPlan();
+renderMatchSetup();
+renderLabSetup();
+window.bjjApp = app; // handy from the console
+})();
 </script>
 </body>
 </html>
