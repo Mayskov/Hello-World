@@ -375,18 +375,18 @@ const CONFIG = {
   chance: {
     min: 0.05,
     max: 0.9,
-    attrScale: 0.04,         // chance per point of weighted stat difference
+    attrScale: 0.025,        // chance per point of weighted stat difference
     familiarityBonus: 0.03,  // action starts from an archetype's favourite position
-    reactionBonus: 0.05,     // defender who was also trying something reacts
-    instinctPenalty: 0,      // chance penalty when no plan step fits and the fighter improvises
-    initiativeNoise: 0.3,    // random spread when both fighters try to change position
+    reactionBonus: 0.09,     // defender who was also trying something reacts
+    instinctPenalty: 0.1,    // chance penalty when no plan step fits and the fighter improvises
+    initiativeNoise: 0.4,    // random spread when both fighters try to change position
   },
   stamina: {
     base: 60,
     perCardio: 8,            // max stamina = base + perCardio * cardio
     recoverBase: 2,
     recoverPerCardio: 0.4,   // recovery in a tick with no attempt
-    costScale: 1,            // multiplies every action's staminaCost
+    costScale: 0.6,          // multiplies every action's staminaCost
     defendShare: 0.3,        // defender pays this share of the attacker's cost
     pinnedDrain: 1.5,        // per tick when stuck under a pin or with the back taken
     fatigueThreshold: 0.4,   // penalty starts below 40% stamina
@@ -398,12 +398,12 @@ const CONFIG = {
     closeMargin: 0.1,        // a miss within this margin of the chance is "close"
     reversalBase: 0.03,
     reversalFromAttr: 0.5,   // extra reversal chance per unit of negative attribute delta
-    counterReversal: 0,      // extra reversal chance when the defender has a legal counter queued
-    reversalMax: 0.12,
+    counterReversal: 0.15,   // extra reversal chance when the defender has a legal counter queued
+    reversalMax: 0.3,
     closeFailAdvantage: 1,
   },
   submission: {
-    resistBase: 0.4,
+    resistBase: 0.45,
     defenseWeight: 0.04,
     escapesWeight: 0.04,
     tightnessWeight: 0.12,   // per tightness level above 1
@@ -474,9 +474,11 @@ const WEIGHTS = {
   pinGrip:         { pressure: 0.5, transitions: 0.5 },
   frame:           { escapes: 0.5, defense: 0.5 },
   takedownAtt:     { takedowns: 0.6, explosiveness: 0.4 },
-  takedownDef:     { takedowns: 0.4, defense: 0.3, explosiveness: 0.3 },
+  takedownDef:     { takedowns: 0.3, pressure: 0.3, defense: 0.2, explosiveness: 0.2 },
+  snapDownAtt:     { pressure: 0.4, gripStrength: 0.3, takedowns: 0.3 },
+  kneeThroughDef:  { guard: 0.4, flexibility: 0.6 },
   pullAtt:         { guard: 0.7, flexibility: 0.3 },
-  pullDef:         { takedowns: 0.6, explosiveness: 0.4 },
+  pullDef:         { takedowns: 0.5, explosiveness: 0.3, pressure: 0.2 },
   postureAtt:      { guard: 0.5, gripStrength: 0.3, flexibility: 0.2 },
   postureDef:      { pressure: 0.5, defense: 0.3, passing: 0.2 },
   postureUpAtt:    { pressure: 0.5, defense: 0.5 },
@@ -531,23 +533,23 @@ const ACTION_LIST = [
   { id: 'st_break_grips', name: 'Break their grips', category: 'defense', from: 'standing', role: 'neutral',
     removes: { grips: ['collar', 'sleeve'] }, baseChance: 0.5, attackWeights: W.gripFight, defenseWeights: W.standGrip, staminaCost: 2 },
   { id: 'double_leg', name: 'Double-leg takedown', category: 'takedown', from: 'standing', role: 'neutral',
-    to: 'half_guard', roleAfter: 'self', points: 2, baseChance: 0.28, partialGrants: { grips: ['collar'] },
+    to: 'half_guard', roleAfter: 'self', points: 2, baseChance: 0.24, partialGrants: { grips: ['collar'] },
     attackWeights: W.takedownAtt, defenseWeights: W.takedownDef, staminaCost: 9 },
   { id: 'single_leg', name: 'Single-leg takedown', category: 'takedown', from: 'standing', role: 'neutral',
-    requires: { grips: ['collar'] }, to: 'open_guard', roleAfter: 'self', points: 2, baseChance: 0.36,
+    requires: { grips: ['collar'] }, to: 'open_guard', roleAfter: 'self', points: 2, baseChance: 0.3,
     attackWeights: W.takedownAtt, defenseWeights: W.takedownDef, staminaCost: 8 },
-  { id: 'snap_down', name: 'Snap them down to the turtle', category: 'transition', from: 'standing', role: 'neutral',
+  { id: 'snap_down', name: 'Snap them down to the turtle', category: 'takedown', from: 'standing', role: 'neutral',
     requires: { grips: ['collar'] }, to: 'turtle', roleAfter: 'self', points: 0, baseChance: 0.3,
-    attackWeights: W.takedownAtt, defenseWeights: W.takedownDef, staminaCost: 6 },
+    attackWeights: W.snapDownAtt, defenseWeights: W.takedownDef, staminaCost: 6 },
   { id: 'pull_closed_guard', name: 'Pull closed guard', category: 'transition', from: 'standing', role: 'neutral',
     requires: { grips: ['collar'] }, grants: { grips: ['collar'] }, to: 'closed_guard', roleAfter: 'opponent', points: 0,
-    baseChance: 0.7, attackWeights: W.pullAtt, defenseWeights: W.pullDef, staminaCost: 4 },
+    baseChance: 0.55, attackWeights: W.pullAtt, defenseWeights: W.pullDef, staminaCost: 4 },
   { id: 'pull_open_guard', name: 'Sit to open guard', category: 'transition', from: 'standing', role: 'neutral',
     requires: { grips: ['sleeve'] }, grants: { grips: ['sleeve'] }, to: 'open_guard', roleAfter: 'opponent', points: 0,
-    baseChance: 0.75, attackWeights: W.pullAtt, defenseWeights: W.pullDef, staminaCost: 3 },
+    baseChance: 0.55, attackWeights: W.pullAtt, defenseWeights: W.pullDef, staminaCost: 3 },
   { id: 'pull_dlr', name: 'Pull de la Riva guard', category: 'transition', from: 'standing', role: 'neutral',
     requires: { grips: ['sleeve'] }, grants: { grips: ['sleeve'] }, to: 'de_la_riva', roleAfter: 'opponent', points: 0,
-    baseChance: 0.65, attackWeights: W.pullAtt, defenseWeights: W.pullDef, staminaCost: 5 },
+    baseChance: 0.35, attackWeights: W.pullAtt, defenseWeights: W.pullDef, staminaCost: 5 },
 
   // ---------------- Closed guard: bottom ----------------
   { id: 'cg_collar', name: 'Take a collar grip', category: 'grip', from: 'closed_guard', role: 'bottom',
@@ -556,29 +558,29 @@ const ACTION_LIST = [
     grants: { grips: ['sleeve'] }, baseChance: 0.6, attackWeights: W.guardGrip, defenseWeights: W.gripFight, staminaCost: 2 },
   { id: 'cg_break_posture', name: 'Break their posture', category: 'posture', from: 'closed_guard', role: 'bottom',
     requires: { grips: ['collar'] }, grants: { flags: ['posture_broken'] }, partialGrants: { grips: ['sleeve'] },
-    baseChance: 0.42, attackWeights: W.postureAtt, defenseWeights: W.postureDef, staminaCost: 3 },
+    baseChance: 0.52, attackWeights: W.postureAtt, defenseWeights: W.postureDef, staminaCost: 3 },
   { id: 'cg_armbar', name: 'Armbar from closed guard', category: 'submission', from: 'closed_guard', role: 'bottom',
     requires: { grips: ['sleeve'], flags: ['posture_broken'] }, tightness: 2,
-    baseChance: 0.32, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 7 },
+    baseChance: 0.24, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 7 },
   { id: 'cg_triangle', name: 'Triangle choke from closed guard', category: 'submission', from: 'closed_guard', role: 'bottom',
     requires: { grips: ['collar'], flags: ['posture_broken'] }, tightness: 3,
-    baseChance: 0.26, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 8 },
+    baseChance: 0.2, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 8 },
   { id: 'cg_cross_collar', name: 'Cross-collar choke from guard', category: 'submission', from: 'closed_guard', role: 'bottom',
     requires: { grips: ['collar'], flags: ['posture_broken'] }, tightness: 1,
-    baseChance: 0.3, attackWeights: W.chokeAtt, defenseWeights: W.subDef, staminaCost: 5 },
+    baseChance: 0.23, attackWeights: W.chokeAtt, defenseWeights: W.subDef, staminaCost: 5 },
   { id: 'cg_scissor_sweep', name: 'Scissor sweep', category: 'sweep', from: 'closed_guard', role: 'bottom',
     requires: { grips: ['collar', 'sleeve'] }, to: 'mount', roleAfter: 'self', points: 2,
     baseChance: 0.33, attackWeights: W.sweepAtt, defenseWeights: W.sweepDef, staminaCost: 7 },
   { id: 'cg_hip_bump', name: 'Hip bump sweep', category: 'sweep', from: 'closed_guard', role: 'bottom',
     to: 'mount', roleAfter: 'self', points: 2, partialGrants: { grips: ['sleeve'] },
-    baseChance: 0.22, attackWeights: W.explosiveEscape, defenseWeights: W.sweepDef, staminaCost: 7 },
+    baseChance: 0.18, attackWeights: W.explosiveEscape, defenseWeights: W.sweepDef, staminaCost: 7 },
   { id: 'cg_open_to_spider', name: 'Open the guard into spider', category: 'transition', from: 'closed_guard', role: 'bottom',
     requires: { grips: ['sleeve'] }, grants: { grips: ['sleeve'] }, to: 'spider', roleAfter: 'opponent', points: 0,
     baseChance: 0.65, attackWeights: W.guardMoveAtt, defenseWeights: W.guardMoveDef, staminaCost: 3 },
 
   // ---------------- Closed guard: top ----------------
   { id: 'cg_posture_up', name: 'Posture up', category: 'defense', from: 'closed_guard', role: 'top',
-    removes: { flags: ['posture_broken'] }, baseChance: 0.5, attackWeights: W.postureUpAtt, defenseWeights: W.postureUpDef, staminaCost: 3 },
+    removes: { flags: ['posture_broken'] }, baseChance: 0.45, attackWeights: W.postureUpAtt, defenseWeights: W.postureUpDef, staminaCost: 3 },
   { id: 'cg_break_grips', name: 'Break their grips', category: 'defense', from: 'closed_guard', role: 'top',
     removes: { grips: ['collar', 'sleeve'] }, baseChance: 0.5, attackWeights: W.gripFight, defenseWeights: W.guardGrip, staminaCost: 2 },
   { id: 'cg_stand_open', name: 'Stand up and open the guard', category: 'transition', from: 'closed_guard', role: 'top',
@@ -586,7 +588,7 @@ const ACTION_LIST = [
     baseChance: 0.4, attackWeights: W.openGuardAtt, defenseWeights: W.openGuardDef, staminaCost: 5 },
   { id: 'cg_knee_through', name: 'Knee through into half guard', category: 'transition', from: 'closed_guard', role: 'top',
     blockedBy: { flags: ['posture_broken'] }, to: 'half_guard', roleAfter: 'self', points: 0,
-    baseChance: 0.32, attackWeights: W.pressurePassAtt, defenseWeights: W.passDef, staminaCost: 6 },
+    baseChance: 0.22, attackWeights: W.pressurePassAtt, defenseWeights: W.kneeThroughDef, staminaCost: 6 },
 
   // ---------------- Open guard: bottom ----------------
   { id: 'og_sleeve', name: 'Take a sleeve grip', category: 'grip', from: 'open_guard', role: 'bottom',
@@ -599,10 +601,10 @@ const ACTION_LIST = [
     baseChance: 0.6, attackWeights: W.guardMoveAtt, defenseWeights: W.guardMoveDef, staminaCost: 3 },
   { id: 'og_close_guard', name: 'Close the guard', category: 'transition', from: 'open_guard', role: 'bottom',
     to: 'closed_guard', roleAfter: 'opponent', points: 0, partialGrants: { grips: ['sleeve'] },
-    baseChance: 0.4, attackWeights: W.guardMoveAtt, defenseWeights: W.guardMoveDef, staminaCost: 4 },
+    baseChance: 0.3, attackWeights: W.guardMoveAtt, defenseWeights: W.guardMoveDef, staminaCost: 4 },
   { id: 'og_stand_up', name: 'Technical stand-up', category: 'escape', from: 'open_guard', role: 'bottom',
     to: 'standing', roleAfter: 'neutral', points: 0,
-    baseChance: 0.45, attackWeights: W.explosiveEscape, defenseWeights: W.passAtt, staminaCost: 5 },
+    baseChance: 0.6, attackWeights: W.explosiveEscape, defenseWeights: W.passAtt, staminaCost: 5 },
 
   // ---------------- Open guard: top ----------------
   { id: 'og_pant', name: 'Grip the pants', category: 'grip', from: 'open_guard', role: 'top',
@@ -611,10 +613,10 @@ const ACTION_LIST = [
     removes: { grips: ['sleeve'] }, baseChance: 0.5, attackWeights: W.gripFight, defenseWeights: W.guardGrip, staminaCost: 2 },
   { id: 'og_toreando', name: 'Toreando pass', category: 'pass', from: 'open_guard', role: 'top',
     requires: { grips: ['pant'] }, to: 'side_control', roleAfter: 'self', points: 3,
-    baseChance: 0.3, attackWeights: W.speedPassAtt, defenseWeights: W.passDef, staminaCost: 8 },
+    baseChance: 0.2, attackWeights: W.speedPassAtt, defenseWeights: W.passDef, staminaCost: 8 },
   { id: 'og_smash', name: 'Smash into half guard', category: 'transition', from: 'open_guard', role: 'top',
     to: 'half_guard', roleAfter: 'self', points: 0,
-    baseChance: 0.42, attackWeights: W.pressurePassAtt, defenseWeights: W.passDef, staminaCost: 6 },
+    baseChance: 0.52, attackWeights: W.pressurePassAtt, defenseWeights: W.passDef, staminaCost: 6 },
 
   // ---------------- De la Riva: bottom ----------------
   { id: 'dlr_sleeve', name: 'Take a sleeve grip', category: 'grip', from: 'de_la_riva', role: 'bottom',
@@ -623,7 +625,7 @@ const ACTION_LIST = [
     grants: { grips: ['pant'] }, baseChance: 0.5, attackWeights: W.guardGrip, defenseWeights: W.gripFight, staminaCost: 2 },
   { id: 'dlr_berimbolo', name: 'Berimbolo to the back', category: 'transition', from: 'de_la_riva', role: 'bottom',
     requires: { grips: ['pant'] }, grants: { grips: ['hooks'] }, to: 'back', roleAfter: 'self', points: 4,
-    baseChance: 0.28, attackWeights: W.backAtt, defenseWeights: W.backDef, staminaCost: 9 },
+    baseChance: 0.33, attackWeights: W.backAtt, defenseWeights: W.backDef, staminaCost: 9 },
   { id: 'dlr_sweep', name: 'De la Riva sweep', category: 'sweep', from: 'de_la_riva', role: 'bottom',
     requires: { grips: ['sleeve'] }, to: 'half_guard', roleAfter: 'self', points: 2, partialGrants: { grips: ['pant'] },
     baseChance: 0.33, attackWeights: W.sweepAtt, defenseWeights: W.sweepDef, staminaCost: 7 },
@@ -635,7 +637,7 @@ const ACTION_LIST = [
     grants: { grips: ['pant'] }, baseChance: 0.55, attackWeights: W.topGrip, defenseWeights: W.gripFight, staminaCost: 2 },
   { id: 'dlr_kill_hook', name: 'Kill the de la Riva hook', category: 'transition', from: 'de_la_riva', role: 'top',
     to: 'open_guard', roleAfter: 'self', points: 0,
-    baseChance: 0.42, attackWeights: W.openGuardAtt, defenseWeights: W.openGuardDef, staminaCost: 4 },
+    baseChance: 0.32, attackWeights: W.pressurePassAtt, defenseWeights: W.openGuardDef, staminaCost: 4 },
   { id: 'dlr_leg_drag', name: 'Leg drag pass', category: 'pass', from: 'de_la_riva', role: 'top',
     requires: { grips: ['pant'] }, to: 'side_control', roleAfter: 'self', points: 3,
     baseChance: 0.26, attackWeights: W.speedPassAtt, defenseWeights: W.passDef, staminaCost: 8 },
@@ -650,7 +652,7 @@ const ACTION_LIST = [
     baseChance: 0.3, attackWeights: W.sweepAtt, defenseWeights: W.sweepDef, staminaCost: 7 },
   { id: 'sp_triangle', name: 'Triangle from spider guard', category: 'submission', from: 'spider', role: 'bottom',
     requires: { grips: ['sleeve', 'collar'] }, tightness: 3,
-    baseChance: 0.26, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 8 },
+    baseChance: 0.2, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 8 },
 
   // ---------------- Spider: top ----------------
   { id: 'sp_break_grips', name: 'Break the spider grips', category: 'defense', from: 'spider', role: 'top',
@@ -694,12 +696,12 @@ const ACTION_LIST = [
     baseChance: 0.42, attackWeights: { transitions: 0.5, explosiveness: 0.5 }, defenseWeights: W.topTransDef, staminaCost: 5 },
   { id: 'sc_kimura', name: 'Kimura from side control', category: 'submission', from: 'side_control', role: 'top',
     requires: { grips: ['wrist'] }, tightness: 2,
-    baseChance: 0.3, attackWeights: W.subAtt, defenseWeights: W.subDef, staminaCost: 6 },
+    baseChance: 0.23, attackWeights: W.subAtt, defenseWeights: W.subDef, staminaCost: 6 },
   { id: 'sc_frames', name: 'Build frames', category: 'grip', from: 'side_control', role: 'bottom',
     grants: { grips: ['frames'] }, baseChance: 0.5, attackWeights: W.frame, defenseWeights: W.pinGrip, staminaCost: 2 },
   { id: 'sc_shrimp_guard', name: 'Shrimp and recover guard', category: 'escape', from: 'side_control', role: 'bottom',
     requires: { grips: ['frames'] }, to: 'open_guard', roleAfter: 'opponent', points: 0,
-    baseChance: 0.32, attackWeights: W.escapeAtt, defenseWeights: W.escapeDef, staminaCost: 6 },
+    baseChance: 0.36, attackWeights: W.escapeAtt, defenseWeights: W.escapeDef, staminaCost: 6 },
   { id: 'sc_turtle', name: 'Turn to turtle', category: 'escape', from: 'side_control', role: 'bottom',
     to: 'turtle', roleAfter: 'opponent', points: 0,
     baseChance: 0.38, attackWeights: W.explosiveEscape, defenseWeights: W.escapeDef, staminaCost: 5 },
@@ -712,10 +714,10 @@ const ACTION_LIST = [
     baseChance: 0.38, attackWeights: W.topTransAtt, defenseWeights: W.topTransDef, staminaCost: 4 },
   { id: 'kob_far_armbar', name: 'Far-side armbar', category: 'submission', from: 'knee_on_belly', role: 'top',
     requires: { grips: ['sleeve'] }, tightness: 2,
-    baseChance: 0.28, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 7 },
+    baseChance: 0.21, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 7 },
   { id: 'kob_escape', name: 'Push the knee off and recover guard', category: 'escape', from: 'knee_on_belly', role: 'bottom',
     to: 'open_guard', roleAfter: 'opponent', points: 0,
-    baseChance: 0.38, attackWeights: W.escapeAtt, defenseWeights: W.escapeDef, staminaCost: 5 },
+    baseChance: 0.42, attackWeights: W.escapeAtt, defenseWeights: W.escapeDef, staminaCost: 5 },
 
   // ---------------- Mount ----------------
   { id: 'mt_collar', name: 'Feed a collar grip', category: 'grip', from: 'mount', role: 'top',
@@ -724,10 +726,10 @@ const ACTION_LIST = [
     grants: { flags: ['arm_isolated'] }, baseChance: 0.45, attackWeights: W.subAtt, defenseWeights: W.frame, staminaCost: 3 },
   { id: 'mt_cross_collar', name: 'Cross-collar choke from mount', category: 'submission', from: 'mount', role: 'top',
     requires: { grips: ['collar'] }, tightness: 2,
-    baseChance: 0.3, attackWeights: W.chokeAtt, defenseWeights: W.subDef, staminaCost: 5 },
+    baseChance: 0.23, attackWeights: W.chokeAtt, defenseWeights: W.subDef, staminaCost: 5 },
   { id: 'mt_armbar', name: 'Armbar from mount', category: 'submission', from: 'mount', role: 'top',
     requires: { flags: ['arm_isolated'] }, tightness: 2,
-    baseChance: 0.33, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 7 },
+    baseChance: 0.25, attackWeights: W.flexSubAtt, defenseWeights: W.subDef, staminaCost: 7 },
   { id: 'mt_take_back', name: 'Take the back as they turn', category: 'transition', from: 'mount', role: 'top',
     grants: { grips: ['seatbelt'] }, to: 'back', roleAfter: 'self', points: 4,
     baseChance: 0.22, attackWeights: W.backAtt, defenseWeights: W.backDef, staminaCost: 6 },
@@ -737,7 +739,7 @@ const ACTION_LIST = [
     removes: { grips: ['collar'], flags: ['arm_isolated'] }, baseChance: 0.45, attackWeights: W.frame, defenseWeights: W.subAtt, staminaCost: 2 },
   { id: 'mt_elbow_knee', name: 'Elbow-knee escape', category: 'escape', from: 'mount', role: 'bottom',
     requires: { grips: ['frames'] }, to: 'half_guard', roleAfter: 'opponent', points: 0,
-    baseChance: 0.33, attackWeights: W.escapeAtt, defenseWeights: W.escapeDef, staminaCost: 6 },
+    baseChance: 0.28, attackWeights: W.escapeAtt, defenseWeights: W.escapeDef, staminaCost: 6 },
   { id: 'mt_upa', name: 'Trap and roll', category: 'escape', from: 'mount', role: 'bottom',
     to: 'closed_guard', roleAfter: 'self', points: 0, partialGrants: { grips: ['frames'] },
     baseChance: 0.22, attackWeights: W.explosiveEscape, defenseWeights: W.escapeDef, staminaCost: 7 },
@@ -753,17 +755,17 @@ const ACTION_LIST = [
     baseChance: 0.5, attackWeights: W.handFightDef, defenseWeights: W.handFightAtt, staminaCost: 2 },
   { id: 'bk_rnc', name: 'Rear naked choke', category: 'submission', from: 'back', role: 'back_taker',
     requires: { grips: ['seatbelt', 'hooks'] }, tightness: 3,
-    baseChance: 0.32, attackWeights: W.chokeAtt, defenseWeights: W.subDef, staminaCost: 6 },
+    baseChance: 0.24, attackWeights: W.chokeAtt, defenseWeights: W.subDef, staminaCost: 6 },
   { id: 'bk_bow_arrow', name: 'Bow and arrow choke', category: 'submission', from: 'back', role: 'back_taker',
     requires: { grips: ['collar', 'hooks'] }, tightness: 2,
-    baseChance: 0.34, attackWeights: W.chokeAtt, defenseWeights: W.subDef, staminaCost: 6 },
+    baseChance: 0.26, attackWeights: W.chokeAtt, defenseWeights: W.subDef, staminaCost: 6 },
   { id: 'bk_hand_fight', name: 'Two-on-one hand fight', category: 'defense', from: 'back', role: 'back_taken',
     removes: { grips: ['seatbelt', 'collar'] }, baseChance: 0.45, attackWeights: W.handFightAtt, defenseWeights: W.handFightDef, staminaCost: 2 },
   { id: 'bk_strip_hooks', name: 'Strip the hooks', category: 'defense', from: 'back', role: 'back_taken',
     removes: { grips: ['hooks'] }, baseChance: 0.4, attackWeights: { escapes: 0.6, flexibility: 0.4 }, defenseWeights: W.backAtt, staminaCost: 3 },
   { id: 'bk_escape', name: 'Slide off and escape the back', category: 'escape', from: 'back', role: 'back_taken',
     blockedBy: { grips: ['hooks'] }, to: 'half_guard', roleAfter: 'opponent', points: 0,
-    baseChance: 0.32, attackWeights: W.escapeAtt, defenseWeights: W.escapeDef, staminaCost: 6 },
+    baseChance: 0.36, attackWeights: W.escapeAtt, defenseWeights: W.escapeDef, staminaCost: 6 },
 
   // ---------------- Turtle ----------------
   { id: 'tt_seatbelt', name: 'Seatbelt grip over the turtle', category: 'grip', from: 'turtle', role: 'top',
@@ -822,24 +824,24 @@ const ARCHETYPES = {
   pressure_passer: {
     name: 'Pressure passer',
     summary: 'Heavy top game: flattens people in half guard and grinds through pins.',
-    attack: { pass: 0.06, transition: 0.03, sweep: -0.04 },
-    defend: { sweep: 0.05, escape: 0.04 },
+    attack: { pass: 0.02, transition: 0.03, sweep: -0.04, takedown: 0.02 },
+    defend: { sweep: 0.01, escape: 0.08, takedown: 0.1 },
     favourite: ['closed_guard', 'half_guard', 'side_control'],
     defaults: { neutral: ['grip', 'takedown'], guard_top: ['defense', 'grip', 'transition', 'pass'] },
   },
   guard_player: {
     name: 'Guard player',
     summary: 'Pulls guard, lives off grips, attacks sweeps and submissions from the bottom.',
-    attack: { sweep: 0.05, posture: 0.05, grip: 0.03 },
-    defend: { pass: 0.05, posture: 0.03 },
+    attack: { sweep: 0.01, posture: 0.07, grip: 0.03, submission: 0.02 },
+    defend: { pass: 0.09, posture: 0.03 },
     favourite: ['closed_guard', 'open_guard', 'de_la_riva', 'spider'],
     defaults: { neutral: ['grip', 'transition'], guard_bottom: ['grip', 'posture', 'submission', 'sweep'] },
   },
   wrestler: {
     name: 'Wrestler',
     summary: 'Wins the takedown, scrambles hard and refuses to be pulled into guard.',
-    attack: { takedown: 0.08, escape: 0.04, transition: 0.02, submission: -0.03 },
-    defend: { takedown: 0.06, transition: 0.03, sweep: 0.02 },
+    attack: { takedown: 0.12, escape: 0.04, transition: 0.02, submission: -0.03 },
+    defend: { takedown: 0.06, transition: 0.08, sweep: 0.02, posture: 0.12, submission: 0.02 },
     favourite: ['standing', 'turtle', 'side_control'],
     defaults: { neutral: ['takedown', 'grip'], guard_bottom: ['escape', 'grip', 'sweep'] },
   },
@@ -880,8 +882,8 @@ function step(primary, fallback, condition, maxAttempts) {
 const PRESET_FIGHTERS = {
   pressure: {
     name: 'Pressure passer', archetype: 'pressure_passer', giColor: '#1d3b8b', beltRank: 'brown', tapPolicy: 'balanced',
-    attributes: { gripStrength: 7, pressure: 10, flexibility: 3, explosiveness: 5, cardio: 7, defense: 8 },
-    techniques: { takedowns: 4, guard: 2, passing: 9, transitions: 7, submissions: 4, escapes: 4 },
+    attributes: { gripStrength: 6, pressure: 10, flexibility: 3, explosiveness: 6, cardio: 7, defense: 8 },
+    techniques: { takedowns: 5, guard: 2, passing: 9, transitions: 6, submissions: 3, escapes: 5 },
   },
   closed_guard: {
     name: 'Flexible guard player', archetype: 'guard_player', giColor: '#f4f1ea', beltRank: 'brown', tapPolicy: 'balanced',
@@ -895,8 +897,8 @@ const PRESET_FIGHTERS = {
   },
   wrestler: {
     name: 'Wrestler', archetype: 'wrestler', giColor: '#f4f1ea', beltRank: 'brown', tapPolicy: 'balanced',
-    attributes: { gripStrength: 7, pressure: 7, flexibility: 3, explosiveness: 10, cardio: 8, defense: 5 },
-    techniques: { takedowns: 9, guard: 2, passing: 6, transitions: 5, submissions: 3, escapes: 5 },
+    attributes: { gripStrength: 6, pressure: 6, flexibility: 4, explosiveness: 10, cardio: 9, defense: 5 },
+    techniques: { takedowns: 9, guard: 2, passing: 4, transitions: 6, submissions: 3, escapes: 6 },
   },
 };
 const PRESET_PLANS = {
@@ -904,15 +906,15 @@ const PRESET_PLANS = {
     name: 'Pressure passing',
     steps: [
       step('st_collar', null, 'always', 2),
-      step('double_leg', 'single_leg', 'if_opponent_stands', 2),
-      step('cg_knee_through', 'cg_stand_open', 'if_i_am_on_top', 3),
+      step('snap_down', 'double_leg', 'if_opponent_stands', 3),
+      step('cg_knee_through', 'dlr_kill_hook', 'if_i_am_on_top', 3),
       step('hg_crossface', 'og_smash', 'always', 3),
       step('hg_knee_slice', 'og_toreando', 'always', 3),
-      step('sc_crossface', null, 'always', 2),
-      step('sc_mount', 'sc_kob', 'always', 3),
-      step('mt_collar', 'kob_mount', 'always', 2),
-      step('mt_cross_collar', null, 'always', 3),
-      step('sc_frames', 'mt_frames', 'if_i_am_on_bottom', 2),
+      step('sc_crossface', 'tt_seatbelt', 'always', 2),
+      step('sc_mount', 'tt_take_back', 'always', 3),
+      step('mt_collar', 'bk_seatbelt', 'always', 2),
+      step('mt_cross_collar', 'bk_hooks', 'always', 3),
+      step('og_stand_up', 'sc_frames', 'if_i_am_on_bottom', 2),
     ],
   },
   armbar: {
@@ -920,9 +922,9 @@ const PRESET_PLANS = {
     steps: [
       step('st_collar', null, 'always', 2),
       step('pull_closed_guard', null, 'always', 2),
-      step('cg_sleeve', null, 'always', 2),
       step('cg_break_posture', null, 'always', 3),
-      step('cg_armbar', 'cg_triangle', 'always', 3),
+      step('cg_sleeve', null, 'always', 2),
+      step('cg_armbar', 'cg_break_posture', 'always', 3),
       step('cg_scissor_sweep', 'cg_hip_bump', 'always', 2),
       step('mt_isolate_arm', null, 'always', 2),
       step('mt_armbar', null, 'always', 3),
@@ -948,16 +950,16 @@ const PRESET_PLANS = {
   wrestling: {
     name: 'Takedown and ride',
     steps: [
-      step('st_break_grips', null, 'if_i_lose_grips', 1),
+      step('st_break_grips', null, 'always', 2),
       step('st_collar', null, 'always', 2),
       step('single_leg', 'double_leg', 'always', 3),
-      step('og_toreando', 'og_smash', 'always', 3),
-      step('hg_crossface', null, 'always', 2),
-      step('hg_knee_slice', null, 'always', 3),
-      step('sc_kob', null, 'always', 2),
-      step('kob_mount', null, 'always', 2),
+      step('cg_posture_up', 'og_break_grips', 'if_i_am_on_top', 3),
+      step('cg_break_grips', 'dlr_break_grips', 'if_i_am_on_top', 3),
+      step('og_pant', 'hg_crossface', 'always', 2),
+      step('og_toreando', 'hg_knee_slice', 'always', 3),
+      step('sc_kob', 'kob_mount', 'always', 2),
       step('og_stand_up', 'tt_stand_up', 'if_i_am_on_bottom', 2),
-      step('sc_turtle', 'hg_underhook', 'if_i_am_on_bottom', 2),
+      step('hg_underhook', 'sc_turtle', 'if_i_am_on_bottom', 2),
     ],
   },
 };
