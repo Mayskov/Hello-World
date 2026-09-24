@@ -378,6 +378,7 @@ const CONFIG = {
     attrScale: 0.04,         // chance per point of weighted stat difference
     familiarityBonus: 0.03,  // action starts from an archetype's favourite position
     reactionBonus: 0.05,     // defender who was also trying something reacts
+    instinctPenalty: 0,      // chance penalty when no plan step fits and the fighter improvises
     initiativeNoise: 0.3,    // random spread when both fighters try to change position
   },
   stamina: {
@@ -385,6 +386,7 @@ const CONFIG = {
     perCardio: 8,            // max stamina = base + perCardio * cardio
     recoverBase: 2,
     recoverPerCardio: 0.4,   // recovery in a tick with no attempt
+    costScale: 1,            // multiplies every action's staminaCost
     defendShare: 0.3,        // defender pays this share of the attacker's cost
     pinnedDrain: 1.5,        // per tick when stuck under a pin or with the back taken
     fatigueThreshold: 0.4,   // penalty starts below 40% stamina
@@ -396,6 +398,7 @@ const CONFIG = {
     closeMargin: 0.1,        // a miss within this margin of the chance is "close"
     reversalBase: 0.03,
     reversalFromAttr: 0.5,   // extra reversal chance per unit of negative attribute delta
+    counterReversal: 0,      // extra reversal chance when the defender has a legal counter queued
     reversalMax: 0.12,
     closeFailAdvantage: 1,
   },
@@ -1265,7 +1268,7 @@ function fatigue(s, i) {
   const t = CONFIG.stamina.fatigueThreshold;
   return frac >= t ? 0 : CONFIG.stamina.fatiguePenalty * (t - frac) / t;
 }
-function computeChance(ctx, a, i, isReaction) {
+function computeChance(ctx, a, i, isReaction, improvised) {
   const s = ctx.state, j = other(i);
   const A = ctx.fighters[i], D = ctx.fighters[j];
   const attack = weightedScore(A, a.attackWeights);
@@ -1276,8 +1279,9 @@ function computeChance(ctx, a, i, isReaction) {
   const stamina = -fatigue(s, i) + CONFIG.stamina.defenderFatigueShare * fatigue(s, j);
   const familiarity = ctx.arch[i].favourite.includes(s.pos) ? CONFIG.chance.familiarityBonus : 0;
   const reaction = isReaction ? -CONFIG.chance.reactionBonus : 0;
-  const raw = base + attr + archetype + stamina + familiarity + reaction;
-  return { base, attr, archetype, stamina, familiarity, reaction, raw,
+  const instinct = improvised ? -CONFIG.chance.instinctPenalty : 0;
+  const raw = base + attr + archetype + stamina + familiarity + reaction + instinct;
+  return { base, attr, archetype, stamina, familiarity, reaction, instinct, raw,
     total: clamp(raw, CONFIG.chance.min, CONFIG.chance.max) };
 }
 
@@ -1397,9 +1401,10 @@ function attempt(ctx, i, intent, counterIntent) {
   const s = ctx.state, j = other(i);
   const a = intent.action;
   const isReaction = !!counterIntent;
-  const chance = computeChance(ctx, a, i, isReaction);
-  s.stamina[i] -= a.staminaCost;
-  s.stamina[j] -= a.staminaCost * CONFIG.stamina.defendShare;
+  const chance = computeChance(ctx, a, i, isReaction, intent.source === 'default');
+  const cost = a.staminaCost * CONFIG.stamina.costScale;
+  s.stamina[i] -= cost;
+  s.stamina[j] -= cost * CONFIG.stamina.defendShare;
   s.lastAttemptCategory[i] = a.category;
   const roll = ctx.rng();
   const rec = ctx.entry ? { actor: i, actionId: a.id, source: intent.source, step: intent.step,
@@ -1418,9 +1423,11 @@ function attempt(ctx, i, intent, counterIntent) {
     }
   } else {
     const close = roll < chance.total + CONFIG.outcome.closeMargin;
+    const counterReady = !!(counterIntent && counterIntent.action.to && isLegal(s, counterIntent.action, j));
     const revP = Math.min(CONFIG.outcome.reversalMax,
-      CONFIG.outcome.reversalBase + Math.max(0, -chance.attr) * CONFIG.outcome.reversalFromAttr);
-    const counter = !close && roll >= 1 - revP ? findCounter(ctx, j, counterIntent) : null;
+      CONFIG.outcome.reversalBase + Math.max(0, -chance.attr) * CONFIG.outcome.reversalFromAttr +
+      (counterReady ? CONFIG.outcome.counterReversal : 0));
+    const counter = a.positional && !close && roll >= 1 - revP ? findCounter(ctx, j, counterIntent) : null;
     if (counter) {
       outcome = 'reversal';
       if (rec) rec.counterId = counter.action.id;
@@ -1478,7 +1485,7 @@ function playTick(ctx) {
     if (!intents[1]) actor = 0;
     else if (!intents[0]) actor = 1;
     else {
-      const c = [0, 1].map(i => computeChance(ctx, intents[i].action, i, false).total);
+      const c = [0, 1].map(i => computeChance(ctx, intents[i].action, i, false, intents[i].source === 'default').total);
       const init = c.map(x => x + ctx.rng() * CONFIG.chance.initiativeNoise);
       actor = init[0] === init[1] ? (ctx.rng() < 0.5 ? 0 : 1) : init[0] > init[1] ? 0 : 1;
       if (ctx.entry) ctx.entry.contest = { chances: c, initiative: init, winner: actor };
@@ -1626,7 +1633,7 @@ function validatePlan(plan, fighter) {
     const a = ACTIONS[st.primary];
     const fb = st.fallback ? ACTIONS[st.fallback] : null;
     if (!a) { warnings.push({ step: k, kind: 'unknown', msg: 'Step ' + (k + 1) + ' has no action.' }); return; }
-    stamina += a.staminaCost * (st.maxAttempts || 1);
+    stamina += a.staminaCost * CONFIG.stamina.costScale * (st.maxAttempts || 1);
 
     // Sequence check: "always" steps must start where the previous step can leave me,
     // allowing for one move by the opponent. Conditional steps are reactions and exempt.
@@ -2321,7 +2328,7 @@ function outcomeText(at, names) {
 }
 function breakdown(c) {
   const rows = [['Base chance', c.base], ['Attributes and technique', c.attr], ['Archetype', c.archetype],
-    ['Stamina', c.stamina], ['Position familiarity', c.familiarity], ['Defender reacting', c.reaction]];
+    ['Stamina', c.stamina], ['Position familiarity', c.familiarity], ['Defender reacting', c.reaction], ['Improvising (not in plan)', c.instinct]];
   return el('details', { class: 'breakdown' }, el('summary', null, 'Why ' + pct(c.total) + '?'),
     el('table', null, el('tbody', null,
       rows.map(([k, v]) => el('tr', null, el('td', null, k), el('td', null, k === 'Base chance' ? pct(v, 1) : signed(v)))),

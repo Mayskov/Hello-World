@@ -26,8 +26,9 @@ function fixtures(BJJ) {
   // on the wrong things and the plan skips its setups.
   const worseFighter = {
     name: 'Unfocused passer', archetype: 'pressure_passer', tapPolicy: 'balanced',
-    attributes: { gripStrength: 6, pressure: 5, flexibility: 9, explosiveness: 5, cardio: 5, defense: 10 },
-    techniques: { takedowns: 4, guard: 8, passing: 3, transitions: 3, submissions: 8, escapes: 4 },
+    // Points spent on everything the plan never uses.
+    attributes: { gripStrength: 10, pressure: 2, flexibility: 10, explosiveness: 10, cardio: 3, defense: 5 },
+    techniques: { takedowns: 1, guard: 10, passing: 1, transitions: 7, submissions: 10, escapes: 1 },
   };
   const s = (primary, fallback, condition, maxAttempts) => ({ primary, fallback: fallback || null, condition: condition || 'always', maxAttempts: maxAttempts || 2 });
   const worsePlan = {
@@ -57,13 +58,14 @@ function describeAttempt(BJJ, at, names) {
   let s = names[at.actor] + ' ' + a.name + ' [' + pct(c.total) + ' = base ' + pct(c.base) +
     ' attr ' + (c.attr * 100).toFixed(1) + ' arch ' + (c.archetype * 100).toFixed(1) +
     ' stam ' + (c.stamina * 100).toFixed(1) + ' fam ' + (c.familiarity * 100).toFixed(1) +
-    ' react ' + (c.reaction * 100).toFixed(1) + '] roll ' + at.roll.toFixed(3) + ' -> ' + at.outcome;
+    ' react ' + (c.reaction * 100).toFixed(1) + ' inst ' + (c.instinct * 100).toFixed(1) + '] roll ' + at.roll.toFixed(3) + ' -> ' + at.outcome;
   if (at.counterId) s += ' (countered with ' + BJJ.ACTIONS[at.counterId].name + ')';
   if (at.sub) s += ' sub:' + at.sub.decision + (at.sub.roll !== null ? ' ' + pct(at.sub.resistChance) + ' roll ' + at.sub.roll.toFixed(2) + (at.sub.survived ? ' survived' : ' caught') : '');
   return s;
 }
 
 module.exports = {
+  _fixtures: B => fixtures(B),
   selftest(BJJ) {
     let ok = printTests('Data self-tests', BJJ.runDataSelfTests());
     ok = printTests('Engine self-tests', BJJ.runEngineSelfTests()) && ok;
