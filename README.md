@@ -7,12 +7,13 @@ Each player builds a fighter and writes a game plan of up to 10 steps. The engin
 ## Running it
 
 Open `index.html` in a browser. It's one self-contained file with no build step, no dependencies and
-no network requests.
+no network requests. The interface is in Russian; internal ids (actions, positions) stay English, so
+saved fighters and exported JSON are unaffected.
 
-- **Fighter**: spend 40 attribute points and 30 technique points, then pick an archetype, a tap policy and a gi. Import and export as JSON.
-- **Plan**: up to 10 steps, each with a technique, an optional backup, a condition and a number of tries. Warnings show up under the list.
-- **Match**: pick an opponent and a seed, then step through the log. Every attempt shows why its chance was what it was.
-- **Lab**: batch runs (1,000 to 50,000 matches), a round-robin matrix, confidence intervals, a position histogram, CSV export and the self-tests.
+- **Боец** (Fighter): spend 40 attribute points and 30 technique points, then pick an archetype, a tap policy and a gi. Import and export as JSON.
+- **План** (Plan): up to 10 steps, each with a technique, an optional backup, a condition and a number of tries. Warnings show up under the list.
+- **Схватка** (Match): pick an opponent and a seed, then step through the log. Every attempt shows why its chance was what it was.
+- **Лаборатория** (Lab): batch runs (1,000 to 50,000 matches), a round-robin matrix, confidence intervals, a position histogram, CSV export and the self-tests.
 
 ## Running the engine in Node
 
