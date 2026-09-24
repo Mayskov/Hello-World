@@ -756,11 +756,755 @@ function runDataSelfTests() {
   return results;
 }
 
+/* =====================================================================
+ * ENGINE
+ * Pure functions over plain data. Nothing here touches the DOM and
+ * nothing here builds display strings: the log is structured data
+ * that the UI renders.
+ * ===================================================================== */
+
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+const other = i => 1 - i;
+
+function statValue(f, key) {
+  return key in f.attributes ? f.attributes[key] : f.techniques[key];
+}
+function statMean(key) {
+  return ATTRIBUTE_KEYS.includes(key) ? CONFIG.statMeans.attributes : CONFIG.statMeans.techniques;
+}
+// Weighted average of a fighter's stats, relative to the average build.
+function weightedScore(f, weights) {
+  let sum = 0, total = 0;
+  for (const k in weights) {
+    sum += weights[k] * (statValue(f, k) - statMean(k));
+    total += weights[k];
+  }
+  return total ? sum / total : 0;
+}
+function maxStamina(f) {
+  return CONFIG.stamina.base + CONFIG.stamina.perCardio * f.attributes.cardio;
+}
+
+/* ---------------- Match state ---------------- */
+function createState(fighters, plans) {
+  return {
+    tick: 0,
+    pos: 'standing',
+    dom: null,               // index of the fighter holding roles[0]; null when standing
+    grips: [[], []],
+    flags: [[], []],
+    stamina: fighters.map(maxStamina),
+    maxStamina: fighters.map(maxStamina),
+    points: [0, 0],
+    adv: [0, 0],
+    ptr: [0, 0],
+    attempts: plans.map(p => p.steps.map(() => 0)),
+    lostGrips: [false, false],
+    lastAttemptCategory: [null, null],
+    over: false,
+    winner: null,
+    method: null,
+  };
+}
+
+function roleOf(s, i) {
+  const p = POSITIONS[s.pos];
+  if (p.kind === 'neutral') return 'neutral';
+  return i === s.dom ? p.roles[0] : p.roles[1];
+}
+function isBottomRole(r) { return r === 'bottom' || r === 'back_taken'; }
+function isTopRole(r) { return r === 'top' || r === 'back_taker'; }
+
+function situationOf(s, i) {
+  const p = POSITIONS[s.pos];
+  if (p.kind === 'neutral') return 'neutral';
+  if (p.kind === 'back') return roleOf(s, i);
+  return p.kind + '_' + roleOf(s, i);
+}
+
+/* ---------------- Legality ---------------- */
+function hasAll(have, need) {
+  for (const x of need) if (!have.includes(x)) return false;
+  return true;
+}
+function hasAny(have, list) {
+  for (const x of list) if (have.includes(x)) return true;
+  return false;
+}
+// A grip or defence action is pointless when it would change nothing.
+function isPointless(s, a, i) {
+  if (a.positional) return false;
+  const j = other(i);
+  const gains = a.grants.grips.some(g => !s.grips[i].includes(g)) || a.grants.flags.some(f => !s.flags[i].includes(f));
+  const strips = hasAny(s.grips[j], a.removes.grips) || hasAny(s.flags[j], a.removes.flags);
+  return !gains && !strips;
+}
+function isLegal(s, a, i) {
+  if (!a) return false;
+  if (!a.fromList.includes(s.pos)) return false;
+  if (a.role !== roleOf(s, i)) return false;
+  if (s.stamina[i] <= 0 && !CONFIG.stamina.zeroStaminaCategories.includes(a.category)) return false;
+  if (!hasAll(s.grips[i], a.requires.grips) || !hasAll(s.flags[i], a.requires.flags)) return false;
+  const j = other(i);
+  if (hasAny(s.grips[j], a.blockedBy.grips) || hasAny(s.flags[j], a.blockedBy.flags)) return false;
+  return !isPointless(s, a, i);
+}
+// A plan step is "already done" when its grip/flag is held; the pointer skips it for free.
+function stepAlreadyDone(s, st, i) {
+  const a = ACTIONS[st.primary];
+  if (!a || a.positional || !a.fromList.includes(s.pos) || a.role !== roleOf(s, i)) return false;
+  if (a.removes.grips.length || a.removes.flags.length) return false;
+  return hasAll(s.grips[i], a.grants.grips) && hasAll(s.flags[i], a.grants.flags);
+}
+
+/* ---------------- Conditions ---------------- */
+function conditionHolds(s, cond, i) {
+  const j = other(i);
+  const p = POSITIONS[s.pos];
+  switch (cond) {
+    case 'always': return true;
+    case 'if_opponent_stands':
+      return p.kind === 'neutral' || (roleOf(s, j) === 'top' && p.topStance === 'standing');
+    case 'if_opponent_kneels':
+      return (roleOf(s, j) === 'top' && p.topStance === 'kneeling') || (roleOf(s, j) === 'bottom' && p.bottomStance === 'kneeling');
+    case 'if_i_lose_grips': return s.lostGrips[i];
+    case 'if_i_am_on_bottom': return isBottomRole(roleOf(s, i));
+    case 'if_i_am_on_top': return isTopRole(roleOf(s, i));
+    case 'if_opponent_attacks_submission': return s.lastAttemptCategory[j] === 'submission';
+    case 'if_behind_on_points': return s.points[i] < s.points[j];
+    case 'if_under_2_min_left': return s.tick >= CONFIG.match.lateTick;
+    default: return false;
+  }
+}
+
+/* ---------------- Intent selection ----------------
+ * Steps from the pointer onward are tried in order, then the rest of
+ * the plan from the top (so a plan can pick itself back up after a
+ * scramble). The first step whose condition holds and whose primary,
+ * or failing that fallback, is legal becomes the intent. With no usable
+ * step the archetype's default behaviour picks an action.
+ */
+function chooseIntent(ctx, i) {
+  const s = ctx.state;
+  const plan = ctx.plans[i];
+  const n = plan.steps.length;
+  while (s.ptr[i] < n && stepAlreadyDone(s, plan.steps[s.ptr[i]], i)) {
+    s.ptr[i]++;
+    ctx.stats.lastAdvance[i] = s.tick;
+    note(ctx, { type: 'plan_skip_done', who: i, step: s.ptr[i] - 1 });
+  }
+  for (let k = 0; k < n; k++) {
+    const idx = (s.ptr[i] + k) % n;
+    const st = plan.steps[idx];
+    if (s.attempts[i][idx] >= st.maxAttempts) continue;
+    if (!conditionHolds(s, st.condition, i)) continue;
+    const primary = ACTIONS[st.primary];
+    if (isLegal(s, primary, i)) return { action: primary, step: idx, source: 'plan' };
+    const fb = st.fallback ? ACTIONS[st.fallback] : null;
+    if (isLegal(s, fb, i)) return { action: fb, step: idx, source: 'fallback' };
+  }
+  return defaultIntent(ctx, i);
+}
+
+function defaultIntent(ctx, i) {
+  const s = ctx.state;
+  const order = ctx.arch[i].defaults[situationOf(s, i)] || [];
+  for (const cat of order) {
+    let best = null;
+    for (const a of ctx.slots[s.pos][roleOf(s, i)] || []) {
+      if (a.category !== cat || !isLegal(s, a, i)) continue;
+      if (!best || a.baseChance > best.baseChance) best = a;
+    }
+    if (best) return { action: best, step: null, source: 'default' };
+  }
+  return null;
+}
+
+/* ---------------- Chance ---------------- */
+function fatigue(s, i) {
+  const frac = s.stamina[i] / s.maxStamina[i];
+  const t = CONFIG.stamina.fatigueThreshold;
+  return frac >= t ? 0 : CONFIG.stamina.fatiguePenalty * (t - frac) / t;
+}
+function computeChance(ctx, a, i, isReaction) {
+  const s = ctx.state, j = other(i);
+  const A = ctx.fighters[i], D = ctx.fighters[j];
+  const attack = weightedScore(A, a.attackWeights);
+  const defend = weightedScore(D, a.defenseWeights);
+  const base = a.baseChance;
+  const attr = CONFIG.chance.attrScale * (attack - defend);
+  const archetype = (ctx.arch[i].attack[a.category] || 0) - (ctx.arch[j].defend[a.category] || 0);
+  const stamina = -fatigue(s, i) + CONFIG.stamina.defenderFatigueShare * fatigue(s, j);
+  const familiarity = ctx.arch[i].favourite.includes(s.pos) ? CONFIG.chance.familiarityBonus : 0;
+  const reaction = isReaction ? -CONFIG.chance.reactionBonus : 0;
+  const raw = base + attr + archetype + stamina + familiarity + reaction;
+  return { base, attr, archetype, stamina, familiarity, reaction, raw,
+    total: clamp(raw, CONFIG.chance.min, CONFIG.chance.max) };
+}
+
+/* ---------------- Effects ---------------- */
+function note(ctx, ev) {
+  if (ev.type === 'points') ctx.stats.pointEvents += ev.amount;
+  if (ctx.entry) ctx.entry.events.push(ev);
+}
+function addGrips(s, i, grips, flags) {
+  for (const g of grips) if (!s.grips[i].includes(g)) s.grips[i].push(g);
+  for (const f of flags) if (!s.flags[i].includes(f)) s.flags[i].push(f);
+  if (grips.length) s.lostGrips[i] = false;
+}
+function removeGrips(s, i, grips, flags) {
+  const before = s.grips[i].length;
+  s.grips[i] = s.grips[i].filter(g => !grips.includes(g));
+  s.flags[i] = s.flags[i].filter(f => !flags.includes(f));
+  if (s.grips[i].length < before) s.lostGrips[i] = true;
+}
+function awardPoints(ctx, i, amount, actionId) {
+  if (!amount) return;
+  ctx.state.points[i] += amount;
+  note(ctx, { type: 'points', who: i, amount, actionId });
+}
+function awardAdvantage(ctx, i, actionId) {
+  ctx.state.adv[i] += CONFIG.outcome.closeFailAdvantage;
+  note(ctx, { type: 'advantage', who: i, actionId });
+}
+// Apply a successful non-submission action by fighter i.
+function applySuccess(ctx, a, i) {
+  const s = ctx.state, j = other(i);
+  if (a.to) {
+    const from = s.pos;
+    s.pos = a.to;
+    s.dom = a.roleAfter === 'neutral' ? null : a.roleAfter === 'self' ? i : j;
+    s.grips = [[], []];
+    s.flags = [[], []];
+    s.attempts = s.attempts.map(arr => arr.map(() => 0));
+    note(ctx, { type: 'move', who: i, actionId: a.id, from, to: a.to, dom: s.dom });
+  }
+  addGrips(s, i, a.grants.grips, a.grants.flags);
+  removeGrips(s, j, a.removes.grips, a.removes.flags);
+  awardPoints(ctx, i, a.points, a.id);
+}
+
+/* ---------------- Plan bookkeeping ---------------- */
+function recordPlanResult(ctx, i, intent, succeeded) {
+  if (!intent || intent.source === 'default') return;
+  const s = ctx.state;
+  const k = intent.step;
+  if (succeeded) {
+    s.ptr[i] = k + 1;
+    ctx.stats.lastAdvance[i] = s.tick;
+    note(ctx, { type: 'plan_advance', who: i, step: k });
+    return;
+  }
+  s.attempts[i][k]++;
+  if (s.attempts[i][k] >= ctx.plans[i].steps[k].maxAttempts && k === s.ptr[i]) {
+    s.ptr[i]++;
+    note(ctx, { type: 'plan_give_up', who: i, step: k });
+  }
+}
+
+/* ---------------- Submissions ---------------- */
+function resistChance(D, a) {
+  const c = CONFIG.submission;
+  return clamp(c.resistBase
+    + c.defenseWeight * (D.attributes.defense - CONFIG.statMeans.attributes)
+    + c.escapesWeight * (D.techniques.escapes - CONFIG.statMeans.techniques)
+    - c.tightnessWeight * (a.tightness - 1), c.resistMin, c.resistMax);
+}
+function resolveSubmission(ctx, a, i, rec) {
+  const s = ctx.state, j = other(i);
+  const D = ctx.fighters[j];
+  const odds = resistChance(D, a);
+  const policy = D.tapPolicy || 'balanced';
+  const resist = policy === 'never_tap' || (policy === 'balanced' && odds >= CONFIG.submission.balancedThreshold);
+  const sub = { decision: resist ? 'resist' : 'tap', resistChance: odds, roll: null, survived: false };
+  if (resist) {
+    sub.roll = ctx.rng();
+    sub.survived = sub.roll < odds;
+  }
+  if (rec) rec.sub = sub;
+  if (sub.survived) {
+    s.stamina[i] -= CONFIG.submission.attackerCostOnResist;
+    s.stamina[j] -= CONFIG.submission.defenderCostOnResist;
+    note(ctx, { type: 'sub_survived', who: j, actionId: a.id });
+    return false;
+  }
+  s.over = true;
+  s.winner = i;
+  s.method = 'submission';
+  s.finish = { actionId: a.id, tapped: !resist };
+  note(ctx, { type: 'submission', who: i, actionId: a.id, tapped: !resist });
+  return true;
+}
+
+/* ---------------- Reversal ---------------- */
+// The defender's counter: their own intent if it can land here, otherwise
+// their best sweep/escape/pass/transition from this spot.
+function findCounter(ctx, j, counterIntent) {
+  const s = ctx.state;
+  if (counterIntent && counterIntent.action.to && isLegal(s, counterIntent.action, j)) return counterIntent;
+  let best = null;
+  for (const cat of ['sweep', 'escape', 'pass', 'takedown', 'transition']) {
+    for (const a of ctx.slots[s.pos][roleOf(s, j)] || []) {
+      if (a.category !== cat || !a.to || !isLegal(s, a, j)) continue;
+      if (!best || a.baseChance > best.baseChance) best = a;
+    }
+    if (best) return { action: best, step: null, source: 'default' };
+  }
+  return null;
+}
+
+/* ---------------- One attempt ---------------- */
+function attempt(ctx, i, intent, counterIntent) {
+  const s = ctx.state, j = other(i);
+  const a = intent.action;
+  const isReaction = !!counterIntent;
+  const chance = computeChance(ctx, a, i, isReaction);
+  s.stamina[i] -= a.staminaCost;
+  s.stamina[j] -= a.staminaCost * CONFIG.stamina.defendShare;
+  s.lastAttemptCategory[i] = a.category;
+  const roll = ctx.rng();
+  const rec = ctx.entry ? { actor: i, actionId: a.id, source: intent.source, step: intent.step,
+    reaction: isReaction ? (counterIntent.action.id) : null, chance, roll, outcome: null } : null;
+  if (rec) ctx.entry.attempts.push(rec);
+
+  let outcome;
+  if (roll < chance.total) {
+    outcome = 'success';
+    if (a.category === 'submission') {
+      const finished = resolveSubmission(ctx, a, i, rec);
+      recordPlanResult(ctx, i, intent, finished);
+    } else {
+      applySuccess(ctx, a, i);
+      recordPlanResult(ctx, i, intent, true);
+    }
+  } else {
+    const close = roll < chance.total + CONFIG.outcome.closeMargin;
+    const revP = Math.min(CONFIG.outcome.reversalMax,
+      CONFIG.outcome.reversalBase + Math.max(0, -chance.attr) * CONFIG.outcome.reversalFromAttr);
+    const counter = !close && roll >= 1 - revP ? findCounter(ctx, j, counterIntent) : null;
+    if (counter) {
+      outcome = 'reversal';
+      if (rec) rec.counterId = counter.action.id;
+      recordPlanResult(ctx, i, intent, false);
+      applySuccess(ctx, counter.action, j);
+      if (counterIntent && counter.action === counterIntent.action) recordPlanResult(ctx, j, counterIntent, true);
+    } else if (close && a.partialGrants && a.partialGrants.grips.some(g => !s.grips[i].includes(g))) {
+      outcome = 'partial';
+      addGrips(s, i, a.partialGrants.grips, []);
+      recordPlanResult(ctx, i, intent, false);
+    } else {
+      outcome = 'failure';
+      if (close && a.positional) awardAdvantage(ctx, j, a.id);
+      recordPlanResult(ctx, i, intent, false);
+    }
+  }
+  if (rec) rec.outcome = outcome;
+  s.stamina[i] = Math.max(0, s.stamina[i]);
+  s.stamina[j] = Math.max(0, s.stamina[j]);
+  return outcome;
+}
+
+/* ---------------- One tick ---------------- */
+function playTick(ctx) {
+  const s = ctx.state;
+  ctx.stats.visits[s.pos] = (ctx.stats.visits[s.pos] || 0) + 1;
+  ctx.entry = ctx.log ? { tick: s.tick, pos: s.pos, dom: s.dom, intents: [null, null],
+    mode: 'idle', contest: null, attempts: [], events: [], state: null } : null;
+
+  const intents = [chooseIntent(ctx, 0), chooseIntent(ctx, 1)];
+  if (ctx.entry) ctx.entry.intents = intents.map(it => it && { actionId: it.action.id, step: it.step, source: it.source });
+  const acted = [false, false];
+  s.lastAttemptCategory = [null, null];
+
+  const positional = intents.map(it => !!it && it.action.positional);
+  if (!intents[0] && !intents[1]) {
+    // nobody does anything
+  } else if (!positional[0] && !positional[1]) {
+    // Compatible intents (grip against grip): both act, in random order.
+    if (ctx.entry) ctx.entry.mode = 'both';
+    const order = ctx.rng() < 0.5 ? [0, 1] : [1, 0];
+    for (const i of order) {
+      if (!intents[i]) continue;
+      if (!isLegal(s, intents[i].action, i)) {
+        note(ctx, { type: 'intent_lost', who: i, actionId: intents[i].action.id });
+        continue;
+      }
+      attempt(ctx, i, intents[i], null);
+      acted[i] = true;
+    }
+  } else {
+    // Only one fighter gets to act. With two intents the better chance
+    // (plus some noise) wins and the other becomes a defensive reaction.
+    let actor;
+    if (!intents[1]) actor = 0;
+    else if (!intents[0]) actor = 1;
+    else {
+      const c = [0, 1].map(i => computeChance(ctx, intents[i].action, i, false).total);
+      const init = c.map(x => x + ctx.rng() * CONFIG.chance.initiativeNoise);
+      actor = init[0] === init[1] ? (ctx.rng() < 0.5 ? 0 : 1) : init[0] > init[1] ? 0 : 1;
+      if (ctx.entry) ctx.entry.contest = { chances: c, initiative: init, winner: actor };
+    }
+    if (ctx.entry) ctx.entry.mode = 'single';
+    attempt(ctx, actor, intents[actor], intents[other(actor)]);
+    acted[actor] = true;
+  }
+
+  // Upkeep: recovery for anyone who did not attempt, drain for anyone pinned.
+  for (const i of [0, 1]) {
+    const f = ctx.fighters[i];
+    if (!acted[i]) s.stamina[i] += CONFIG.stamina.recoverBase + CONFIG.stamina.recoverPerCardio * f.attributes.cardio;
+    const r = roleOf(s, i), kind = POSITIONS[s.pos].kind;
+    if ((kind === 'pin' && r === 'bottom') || r === 'back_taken') s.stamina[i] -= CONFIG.stamina.pinnedDrain;
+    s.stamina[i] = clamp(s.stamina[i], 0, s.maxStamina[i]);
+  }
+
+  if (ctx.entry) {
+    ctx.entry.state = snapshot(s);
+    ctx.log.push(ctx.entry);
+  }
+  s.tick++;
+}
+
+function snapshot(s) {
+  return {
+    pos: s.pos, dom: s.dom, roles: [roleOf(s, 0), roleOf(s, 1)],
+    grips: [s.grips[0].slice(), s.grips[1].slice()], flags: [s.flags[0].slice(), s.flags[1].slice()],
+    stamina: s.stamina.slice(), maxStamina: s.maxStamina.slice(),
+    points: s.points.slice(), adv: s.adv.slice(), ptr: s.ptr.slice(),
+  };
+}
+
+/* ---------------- Match ---------------- */
+let SLOTS = null;
+function actionSlots() {
+  if (SLOTS) return SLOTS;
+  SLOTS = {};
+  for (const p in POSITIONS) SLOTS[p] = {};
+  for (const a of ACTION_LIST) for (const f of a.fromList) (SLOTS[f][a.role] = SLOTS[f][a.role] || []).push(a);
+  return SLOTS;
+}
+
+function normalisePlan(plan) {
+  const steps = (plan && plan.steps ? plan.steps : []).slice(0, CONFIG.match.maxPlanSteps)
+    .filter(st => st && ACTIONS[st.primary])
+    .map(st => ({
+      primary: st.primary,
+      fallback: st.fallback && ACTIONS[st.fallback] ? st.fallback : null,
+      condition: CONDITIONS[st.condition] ? st.condition : 'always',
+      maxAttempts: clamp(Math.round(st.maxAttempts || 1), 1, 3),
+    }));
+  return { name: (plan && plan.name) || 'Plan', steps };
+}
+
+// fighters: [A, B], plans: [planA, planB]. opts.log = false skips the log (batch mode).
+function runMatch(fighters, plans, seed, opts) {
+  opts = opts || {};
+  const normPlans = plans.map(normalisePlan);
+  const ctx = {
+    rng: makeRng(seed),
+    fighters,
+    plans: normPlans,
+    arch: fighters.map(f => ARCHETYPES[f.archetype] || ARCHETYPES.guard_player),
+    slots: actionSlots(),
+    state: createState(fighters, normPlans),
+    log: opts.log === false ? null : [],
+    entry: null,
+    stats: { visits: {}, lastAdvance: [0, 0], pointEvents: 0 },
+  };
+  const s = ctx.state;
+  while (s.tick < CONFIG.match.ticks && !s.over) playTick(ctx);
+
+  if (!s.over) {
+    s.over = true;
+    const cmp = (x, y) => (x > y ? 0 : y > x ? 1 : null);
+    const staminaFrac = [0, 1].map(i => Math.round(1000 * s.stamina[i] / s.maxStamina[i]));
+    let w;
+    if ((w = cmp(s.points[0], s.points[1])) !== null) s.method = 'points';
+    else if ((w = cmp(s.adv[0], s.adv[1])) !== null) s.method = 'advantages';
+    else if ((w = cmp(staminaFrac[0], staminaFrac[1])) !== null) s.method = 'stamina';
+    else { w = ctx.rng() < 0.5 ? 0 : 1; s.method = 'coin'; }
+    s.winner = w;
+  }
+  return {
+    seed, winner: s.winner, method: s.method, finish: s.finish || null,
+    ticks: s.tick, points: s.points.slice(), adv: s.adv.slice(),
+    stamina: s.stamina.slice(), maxStamina: s.maxStamina.slice(),
+    ptr: s.ptr.slice(), planLength: normPlans.map(p => p.steps.length),
+    visits: ctx.stats.visits, lastAdvance: ctx.stats.lastAdvance, pointEvents: ctx.stats.pointEvents,
+    log: ctx.log, plans: normPlans,
+  };
+}
+
+/* ---------------- Validation (for the builders) ---------------- */
+function validateFighter(f) {
+  const issues = [];
+  const b = CONFIG.budget;
+  for (const k of ATTRIBUTE_KEYS) if (!(f.attributes[k] >= b.min && f.attributes[k] <= b.max)) issues.push({ level: 'error', key: k, msg: STAT_LABELS[k] + ' must be between ' + b.min + ' and ' + b.max });
+  for (const k of TECHNIQUE_KEYS) if (!(f.techniques[k] >= b.min && f.techniques[k] <= b.max)) issues.push({ level: 'error', key: k, msg: STAT_LABELS[k] + ' must be between ' + b.min + ' and ' + b.max });
+  const sa = ATTRIBUTE_KEYS.reduce((s, k) => s + f.attributes[k], 0);
+  const st = TECHNIQUE_KEYS.reduce((s, k) => s + f.techniques[k], 0);
+  if (sa > b.attributes) issues.push({ level: 'error', msg: 'Attributes use ' + sa + ' of ' + b.attributes + ' points' });
+  if (st > b.techniques) issues.push({ level: 'error', msg: 'Techniques use ' + st + ' of ' + b.techniques + ' points' });
+  if (!ARCHETYPES[f.archetype]) issues.push({ level: 'error', msg: 'Unknown archetype' });
+  return { attributePoints: sa, techniquePoints: st, issues };
+}
+
+// Where can I be after this action? [{pos, role}] from my point of view.
+function outcomesOf(a) {
+  if (!a) return [];
+  if (!a.to) return a.fromList.map(pos => ({ pos, role: a.role }));
+  const p = POSITIONS[a.to];
+  const role = a.roleAfter === 'neutral' ? 'neutral' : a.roleAfter === 'self' ? p.roles[0] : p.roles[1];
+  return [{ pos: a.to, role }];
+}
+const flipRole = (pos, role) => {
+  const p = POSITIONS[pos];
+  return p.kind === 'neutral' ? 'neutral' : role === p.roles[0] ? p.roles[1] : p.roles[0];
+};
+// Places reachable when the opponent makes one move from (pos, role).
+function opponentMoves(pos, role) {
+  const out = [];
+  const oppRole = flipRole(pos, role);
+  for (const a of ACTION_LIST) {
+    if (!a.to || !a.fromList.includes(pos) || a.role !== oppRole) continue;
+    const p = POSITIONS[a.to];
+    const r = a.roleAfter === 'neutral' ? 'neutral' : a.roleAfter === 'self' ? p.roles[1] : p.roles[0];
+    out.push({ pos: a.to, role: r });
+  }
+  return out;
+}
+
+function validatePlan(plan, fighter) {
+  const warnings = [];
+  const steps = plan.steps || [];
+  if (steps.length > CONFIG.match.maxPlanSteps) warnings.push({ step: null, kind: 'length', msg: 'A plan can hold at most ' + CONFIG.match.maxPlanSteps + ' steps; extra steps are ignored.' });
+  const key = o => o.pos + '|' + o.role;
+  let reachable = new Map([[key({ pos: 'standing', role: 'neutral' }), { pos: 'standing', role: 'neutral' }]]);
+  const provided = { grips: new Set(), flags: new Set() };
+  let stamina = 0;
+
+  steps.forEach((st, k) => {
+    const a = ACTIONS[st.primary];
+    const fb = st.fallback ? ACTIONS[st.fallback] : null;
+    if (!a) { warnings.push({ step: k, kind: 'unknown', msg: 'Step ' + (k + 1) + ' has no action.' }); return; }
+    stamina += a.staminaCost * (st.maxAttempts || 1);
+
+    // Sequence check: "always" steps must start where the previous step can leave me,
+    // allowing for one move by the opponent. Conditional steps are reactions and exempt.
+    const expanded = new Map(reachable);
+    for (const o of reachable.values()) for (const m of opponentMoves(o.pos, o.role)) expanded.set(key(m), m);
+    const fits = x => x && x.fromList.some(f => expanded.has(key({ pos: f, role: x.role })));
+    if (st.condition === 'always' && k > 0 && !fits(a) && !fits(fb)) {
+      warnings.push({ step: k, kind: 'unreachable', msg: 'Step ' + (k + 1) + ' (' + a.name + ') starts from ' +
+        POSITIONS[a.fromList[0]].name.toLowerCase() + ', which the previous step cannot lead to.' });
+    }
+    // Setup check: every required grip/flag must come from an earlier step or from the move into this position.
+    for (const x of [a, fb]) {
+      if (!x) continue;
+      const missing = [...x.requires.grips.filter(g => !provided.grips.has(g)).map(g => GRIPS[g]),
+        ...x.requires.flags.filter(f => !provided.flags.has(f)).map(f => FLAGS[f])];
+      if (missing.length) {
+        warnings.push({ step: k, kind: x.category === 'submission' ? 'no_setup' : 'missing_grip',
+          msg: 'Step ' + (k + 1) + ' (' + x.name + ') needs ' + missing.join(' and ') +
+          (x.category === 'submission' ? ', but no earlier step sets up this submission.' : ', but no earlier step takes it.') });
+      }
+    }
+    for (const x of [a, fb]) {
+      if (!x) continue;
+      x.grants.grips.forEach(g => provided.grips.add(g));
+      x.grants.flags.forEach(f => provided.flags.add(f));
+      if (x.partialGrants) x.partialGrants.grips.forEach(g => provided.grips.add(g));
+    }
+    if (st.condition === 'always' || k === 0) {
+      const next = new Map();
+      for (const x of [a, fb]) for (const o of outcomesOf(x)) next.set(key(o), o);
+      if (next.size) reachable = next;
+    }
+  });
+  const budget = fighter ? maxStamina(fighter) : null;
+  if (budget !== null && stamina > budget) {
+    warnings.push({ step: null, kind: 'stamina', msg: 'If every step uses all its attempts the plan costs ' + stamina +
+      ' stamina, more than this fighter\'s ' + budget + '. Raise cardio or cut attempts.' });
+  }
+  return { warnings, staminaCost: stamina, staminaBudget: budget };
+}
+
+/* ---------------- Batch statistics ----------------
+ * The accumulator is plain data so the UI can run it in chunks and
+ * Node can run it in one go.
+ */
+function newBatch(entries) {
+  const n = entries.length;
+  return {
+    entries,
+    games: Array.from({ length: n }, () => new Array(n).fill(0)),
+    wins: Array.from({ length: n }, () => new Array(n).fill(0)),
+    per: entries.map(() => ({ games: 0, wins: 0, subWins: 0, subLosses: 0, decisions: 0, ties: 0,
+      ticks: 0, stallTick: 0, finishedPlan: 0 })),
+    visits: {}, totalTicks: 0, matches: 0,
+    methods: { submission: 0, points: 0, advantages: 0, stamina: 0, coin: 0 },
+  };
+}
+function recordMatch(batch, ia, ib, r) {
+  const idx = [ia, ib];
+  batch.matches++;
+  batch.methods[r.method]++;
+  batch.totalTicks += r.ticks;
+  for (const p in r.visits) batch.visits[p] = (batch.visits[p] || 0) + r.visits[p];
+  for (const side of [0, 1]) {
+    const me = idx[side], them = idx[1 - side];
+    const won = r.winner === side;
+    batch.games[me][them]++;
+    if (won) batch.wins[me][them]++;
+    const p = batch.per[me];
+    p.games++;
+    if (won) p.wins++;
+    if (r.method === 'submission') { if (won) p.subWins++; else p.subLosses++; }
+    else if (r.method === 'points') p.decisions++;
+    else p.ties++;
+    p.ticks += r.ticks;
+    p.stallTick += r.lastAdvance[side];
+    if (r.ptr[side] >= r.planLength[side]) p.finishedPlan++;
+  }
+}
+// Wilson score interval, 95%.
+function wilson(wins, n) {
+  if (!n) return { p: 0, lo: 0, hi: 0 };
+  const z = 1.96, p = wins / n;
+  const d = 1 + z * z / n;
+  const c = (p + z * z / (2 * n)) / d;
+  const h = (z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / d;
+  return { p, lo: Math.max(0, c - h), hi: Math.min(1, c + h) };
+}
+function summariseBatch(batch) {
+  const n = batch.entries.length;
+  const rows = batch.entries.map((e, i) => {
+    const p = batch.per[i];
+    // Win rate against the field excludes mirror matches.
+    let w = 0, g = 0;
+    for (let j = 0; j < n; j++) if (j !== i) { w += batch.wins[i][j]; g += batch.games[i][j]; }
+    const ci = wilson(w, g);
+    return {
+      entry: e, games: g, wins: w, winRate: ci.p, ci,
+      submissionShare: p.games ? (p.subWins + p.subLosses) / p.games : 0,
+      subWinShare: p.games ? p.subWins / p.games : 0,
+      decisionShare: p.games ? p.decisions / p.games : 0,
+      tieShare: p.games ? p.ties / p.games : 0,
+      avgTicks: p.games ? p.ticks / p.games : 0,
+      avgStallTick: p.games ? p.stallTick / p.games : 0,
+      finishedPlanShare: p.games ? p.finishedPlan / p.games : 0,
+      dominant: g > 0 && ci.p > CONFIG.lab.dominanceThreshold,
+    };
+  });
+  const matrix = batch.entries.map((_, i) => batch.entries.map((__, j) =>
+    batch.games[i][j] ? batch.wins[i][j] / batch.games[i][j] : null));
+  const totalVisits = Object.values(batch.visits).reduce((a, b) => a + b, 0);
+  const visits = Object.keys(POSITIONS).map(p => ({ pos: p, ticks: batch.visits[p] || 0,
+    share: totalVisits ? (batch.visits[p] || 0) / totalVisits : 0 }));
+  return { rows, matrix, visits, matches: batch.matches,
+    avgTicks: batch.matches ? batch.totalTicks / batch.matches : 0,
+    methods: batch.methods };
+}
+// Jobs: [indexA, indexB] pairs. Sides alternate so neither slot is favoured.
+function planJobs(mode, entryCount, total, subjectIndex, opponentIndexes) {
+  const pairs = [];
+  if (mode === 'matrix') {
+    for (let i = 0; i < entryCount; i++) for (let j = i + 1; j < entryCount; j++) pairs.push([i, j]);
+  } else {
+    for (const j of opponentIndexes) pairs.push([subjectIndex, j]);
+  }
+  const jobs = [];
+  if (!pairs.length) return jobs;
+  for (let k = 0; k < total; k++) {
+    const [a, b] = pairs[k % pairs.length];
+    jobs.push(Math.floor(k / pairs.length) % 2 ? [b, a] : [a, b]);
+  }
+  return jobs;
+}
+function runJob(batch, jobs, k, baseSeed) {
+  const [ia, ib] = jobs[k];
+  const A = batch.entries[ia], B = batch.entries[ib];
+  const r = runMatch([A.fighter, B.fighter], [A.plan, B.plan], deriveSeed(baseSeed, k), { log: false });
+  recordMatch(batch, ia, ib, r);
+  return r;
+}
+function presetEntries() {
+  return PRESET_ENTRIES.map(e => ({ id: e.id, label: e.label,
+    fighter: PRESET_FIGHTERS[e.fighter], plan: PRESET_PLANS[e.plan] }));
+}
+
+/* ---------------- Engine self-tests ---------------- */
+// Check one logged match against the invariants.
+function checkMatchInvariants(r) {
+  const problems = [];
+  let pos = 'standing', dom = null;
+  let pts = [0, 0];
+  for (const e of r.log) {
+    if (e.pos !== pos || e.dom !== dom) problems.push('tick ' + e.tick + ': starts in ' + e.pos + ' but previous tick ended in ' + pos);
+    for (const ev of e.events) {
+      if (ev.type === 'move') {
+        const a = ACTIONS[ev.actionId];
+        if (!a || !a.fromList.includes(pos) || a.to !== ev.to) problems.push('tick ' + e.tick + ': illegal move ' + ev.actionId + ' from ' + pos);
+        pos = ev.to; dom = ev.dom;
+      }
+      if (ev.type === 'points') pts[ev.who] += ev.amount;
+    }
+    for (const at of e.attempts) {
+      const a = ACTIONS[at.actionId];
+      if (!a.fromList.includes(e.pos)) problems.push('tick ' + e.tick + ': ' + a.id + ' attempted outside ' + a.from);
+      if (at.chance.total < CONFIG.chance.min - 1e-9 || at.chance.total > CONFIG.chance.max + 1e-9) problems.push('tick ' + e.tick + ': chance out of range');
+    }
+    const st = e.state;
+    if (st.pos !== pos) problems.push('tick ' + e.tick + ': state position disagrees with moves');
+    if (st.stamina.some(x => x < 0)) problems.push('tick ' + e.tick + ': negative stamina');
+    if (st.stamina.some((x, i) => x > st.maxStamina[i] + 1e-9)) problems.push('tick ' + e.tick + ': stamina above max');
+    if (st.ptr.some((p, i) => p > CONFIG.match.maxPlanSteps || p > r.planLength[i])) problems.push('tick ' + e.tick + ': plan pointer past the end');
+  }
+  if (pts[0] !== r.points[0] || pts[1] !== r.points[1]) problems.push('points ' + r.points + ' but log sums to ' + pts);
+  if (r.pointEvents !== r.points[0] + r.points[1]) problems.push('point event counter disagrees');
+  if (r.log.length !== r.ticks) problems.push('log has ' + r.log.length + ' entries for ' + r.ticks + ' ticks');
+  return problems;
+}
+
+function runEngineSelfTests(matches) {
+  matches = matches || 300;
+  const results = [];
+  const check = (name, ok, detail) => results.push({ name, ok: !!ok, detail: ok ? '' : detail || '' });
+  const entries = presetEntries();
+  const problems = [];
+  let totalTicks = 0;
+  for (let k = 0; k < matches; k++) {
+    const a = entries[k % entries.length], b = entries[Math.floor(k / entries.length) % entries.length];
+    const r = runMatch([a.fighter, b.fighter], [a.plan, b.plan], deriveSeed(12345, k));
+    totalTicks += r.ticks;
+    for (const p of checkMatchInvariants(r)) if (problems.length < 10) problems.push('match ' + k + ': ' + p);
+  }
+  check('No illegal position transitions, stamina never negative, points equal the log, pointers stay within the plan (' + matches + ' matches)', !problems.length, problems.join('; '));
+
+  const a = entries[0], b = entries[1];
+  const r1 = runMatch([a.fighter, b.fighter], [a.plan, b.plan], 777);
+  const r2 = runMatch([a.fighter, b.fighter], [a.plan, b.plan], 777);
+  check('Same seed reproduces the same match and log', JSON.stringify(r1) === JSON.stringify(r2));
+  const r3 = runMatch([a.fighter, b.fighter], [a.plan, b.plan], 778);
+  check('A different seed gives a different log', JSON.stringify(r1.log) !== JSON.stringify(r3.log));
+
+  const tooLong = { steps: Array.from({ length: 14 }, () => step('st_collar')) };
+  const r4 = runMatch([a.fighter, b.fighter], [tooLong, b.plan], 1);
+  check('Plans longer than 10 steps are cut to 10', r4.planLength[0] === CONFIG.match.maxPlanSteps);
+
+  const unset = runMatch([a.fighter, b.fighter], [{ steps: [] }, { steps: [] }], 5);
+  check('Empty plans fall back to archetype behaviour and still finish', unset.winner === 0 || unset.winner === 1);
+  return results;
+}
+
 return {
   CONFIG, ATTRIBUTE_KEYS, TECHNIQUE_KEYS, STAT_LABELS, CATEGORIES, CATEGORY_LABELS, TAP_POLICIES, BELTS,
   POSITIONS, ROLE_LABELS, GRIPS, FLAGS, WEIGHTS, ACTION_LIST, ACTIONS, ARCHETYPES, CONDITIONS,
   PRESET_FIGHTERS, PRESET_PLANS, PRESET_ENTRIES,
   makeRng, deriveSeed, runDataSelfTests,
+  runMatch, validatePlan, validateFighter, maxStamina, roleOf, normalisePlan,
+  newBatch, recordMatch, summariseBatch, planJobs, runJob, presetEntries, wilson,
+  runEngineSelfTests, checkMatchInvariants,
 };
 })();
 if (typeof globalThis !== 'undefined') globalThis.BJJ = BJJ;
