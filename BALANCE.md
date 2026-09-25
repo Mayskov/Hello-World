@@ -157,3 +157,18 @@ at 4,000–5,000 matches per pair.
 - **Plans rarely run to completion** (6–16% of matches). The "plan stalls" column in the Lab shows
   most plans stop progressing between about 1:50 and 2:50. That's realistic, but it also means late plan steps
   are rarely reached, so plan length is a weaker decision than plan order.
+
+## Game mode (progression and ladder)
+
+- Starting builds: 28 attribute and 18 technique points, all within the white-belt cap of 6.
+- Ladder opponents grow from 21/12 points at rung 1 to about 44/31 at rung 15 (`GAME.opponent`), spread by the
+  preset builds' proportions and capped by the rung's belt.
+- A fresh starter wins about 56–69% against rungs 1–2; after that training is needed. A player grown to the same point
+  totals as a rung wins roughly 40–60% against it (35–70% depending on the archetype pair).
+- Training pace: about 1.5 stat levels per 6-hour session, so the full ladder needs roughly 15–20 sessions.
+
+Open questions:
+- **Wrestler is the strongest starter** in game mode (55–70% at matched level), pressure passer the weakest (40–53%).
+- **Unlimited attempts**: you can re-fight a rung immediately after a loss, so luck can be ground out. A cooldown or
+  an energy system would fix it if that matters.
+- **Recommendations** use 200 simulations per variant with common seeds; gains under 3% are hidden as noise.

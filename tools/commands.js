@@ -69,6 +69,7 @@ module.exports = {
   selftest(BJJ) {
     let ok = printTests('Data self-tests', BJJ.runDataSelfTests());
     ok = printTests('Engine self-tests', BJJ.runEngineSelfTests()) && ok;
+    ok = printTests('Game self-tests', BJJ.runGameSelfTests()) && ok;
     return ok;
   },
 

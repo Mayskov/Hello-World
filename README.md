@@ -15,6 +15,22 @@ saved fighters and exported JSON are unaffected.
 - **Схватка** (Match): pick an opponent and a seed, then step through the log. Every attempt shows why its chance was what it was.
 - **Лаборатория** (Lab): batch runs (1,000 to 50,000 matches), a round-robin matrix, confidence intervals, a position histogram, CSV export and the self-tests.
 
+## Game mode
+
+The page opens in game mode («Путь к чёрному поясу»); the tabs above are behind the «⚙️ Лаборатория» button.
+
+- **Боец**: your fighter card, attribute radar, technique levels and career history.
+- **Тренировка**: one real-time session at a time (4–8 hours) that adds experience to 1–2 stats. 100 xp = +1 level, capped by
+  belt (white 6 … black 10). A test panel speeds time up (×60, ×600, ×3600) or finishes the session instantly.
+- **Стиль**: four cards (standing, top, bottom, finish) plus a risk level. The cards compile into an ordinary 10-step plan,
+  so the engine and its balance are unchanged. Cards unlock as stats grow.
+- **Лестница**: 15 opponents, belt promotions every 3 rungs. No fights during training.
+- **Разбор** after each match: a win-chance graph, the turning point with its cause (which grip made it possible and
+  whether you had an answer), plan gaps, and recommendations checked by re-simulating the matchup with +1 to each stat
+  and with each alternative card.
+
+Game state is stored in `localStorage` under `bjj-game.v1`.
+
 ## Running the engine in Node
 
 The engine lives in `<script id="bjj-engine">` inside `index.html` and never touches the DOM.

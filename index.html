@@ -182,6 +182,147 @@ table.matrix td.cell { text-align: center; font-weight: 600; }
 </style>
 </head>
 <body>
+<style>
+/* ================= GAME MODE ================= */
+:root {
+  --me: #2f5bd3;
+  --opp: #c0463a;
+  --gold: #b7862b;
+  --mat: #e9eef6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --me: #7c9cff; --opp: #ff8a7d; --gold: #e4b75a; --mat: #1a2130; }
+}
+:root[data-theme="dark"] { --me: #7c9cff; --opp: #ff8a7d; --gold: #e4b75a; --mat: #1a2130; }
+#game-app { max-width: 720px; margin: 0 auto; padding: 0 0 84px; min-height: 100vh; }
+.g-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px 6px; }
+.g-top h1 { font-size: 1.1rem; margin: 0; }
+.g-top .g-dev { font-size: 0.8rem; background: none; border: 1px dashed var(--border); color: var(--muted); min-height: 32px; }
+.g-screen { padding: 8px 16px 16px; }
+.g-screen[hidden] { display: none; }
+.g-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--surface);
+  border-top: 1px solid var(--border); display: flex; justify-content: center;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+}
+.g-nav-inner { display: flex; gap: 4px; width: 100%; max-width: 720px; }
+.g-nav button {
+  flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: 0;
+  border-radius: 10px; padding: 6px 2px; font-size: 0.75rem; color: var(--muted); min-height: 52px;
+}
+.g-nav button .ico { font-size: 1.3rem; line-height: 1; }
+.g-nav button[aria-current="page"] { color: var(--accent); background: var(--surface-2); font-weight: 600; }
+.g-nav button .badge { font-size: 0.65rem; color: var(--gold); font-weight: 700; }
+.g-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+.g-card h2 { font-size: 1.05rem; margin: 0 0 10px; }
+.g-card h3 { font-size: 0.95rem; margin: 14px 0 8px; }
+.g-sub { color: var(--muted); font-size: 0.88rem; margin: 0 0 10px; }
+.g-hero { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; }
+.g-hero .name { font-size: 1.3rem; font-weight: 700; margin: 0; }
+.g-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); }
+.g-chip.belt { font-weight: 700; }
+.g-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.g-btn { border-radius: 12px; padding: 10px 16px; font-weight: 600; min-height: 44px; }
+.g-btn.big { width: 100%; font-size: 1.05rem; padding: 14px; }
+.g-btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.g-btn.ghost { background: none; }
+.g-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.g-tile { text-align: left; border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 4px; min-height: 0; }
+.g-tile .ico { font-size: 1.6rem; }
+.g-tile .t { font-weight: 700; }
+.g-tile .d { font-size: 0.82rem; color: var(--muted); }
+.g-tile.sel { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.g-tile.rec { border-color: var(--gold); }
+.g-tile .rec-tag { font-size: 0.72rem; color: var(--gold); font-weight: 700; }
+.g-tile:disabled { opacity: 0.55; }
+.g-tile.locked { opacity: 0.6; }
+.g-bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; position: relative; }
+.g-bar > span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: 4px; }
+.g-bar > span.xp { background: var(--gold); opacity: 0.6; }
+.g-stat { display: grid; grid-template-columns: 116px 1fr 44px; gap: 8px; align-items: center; font-size: 0.88rem; padding: 3px 0; }
+.g-stat .v { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.g-stat .v small { color: var(--muted); font-weight: 400; }
+.g-radar { width: 100%; max-width: 300px; display: block; margin: 0 auto; }
+.g-ring { width: 150px; height: 150px; display: block; margin: 0 auto; }
+.g-timer { text-align: center; font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.g-test { border: 1px dashed var(--border); border-radius: 12px; padding: 10px; margin-top: 12px; font-size: 0.85rem; }
+.g-test .g-row button { min-height: 34px; padding: 4px 10px; }
+.g-test button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+.g-slot { margin-bottom: 16px; }
+.g-slot-title { font-weight: 700; margin-bottom: 6px; }
+.g-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 560px) { .g-options { grid-template-columns: 1fr; } }
+.g-ladder { list-style: none; margin: 0; padding: 0; }
+.g-ladder li { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+.g-ladder li.cur { background: var(--surface-2); border-radius: 10px; font-weight: 700; }
+.g-ladder li.future { color: var(--muted); }
+.g-ladder .n { text-align: center; font-weight: 700; }
+.g-vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; text-align: center; }
+.g-vs .vs { font-weight: 800; color: var(--muted); }
+.g-cmp { display: grid; grid-template-columns: 1fr 110px 1fr; gap: 6px; align-items: center; font-size: 0.82rem; margin: 3px 0; }
+.g-cmp .l { text-align: right; } .g-cmp .m { text-align: center; color: var(--muted); }
+.g-cmp .better { color: var(--good); font-weight: 700; } .g-cmp .worse { color: var(--bad); font-weight: 700; }
+.g-score { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
+.g-score .side { min-width: 0; }
+.g-score .side.r { text-align: right; }
+.g-score .pts { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+.g-score .me .pts { color: var(--me); } .g-score .opp .pts { color: var(--opp); }
+.g-score .clock { font-size: 1.2rem; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.g-score .who { font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-mini { font-size: 0.75rem; color: var(--muted); }
+.g-stam { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 4px; }
+.g-stam > span { display: block; height: 100%; }
+.g-map { width: 100%; max-width: 440px; margin: 0 auto; display: block; background: var(--mat); border-radius: 12px; }
+.g-chart { width: 100%; max-width: 560px; margin: 0 auto; display: block; }
+.g-feed { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
+.g-feed li { padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 0.88rem; display: grid; grid-template-columns: 52px 1fr; gap: 8px; }
+.g-feed .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.g-feed li.good { color: var(--good); } .g-feed li.bad { color: var(--bad); }
+.g-result { text-align: center; padding: 18px 12px; border-radius: 16px; margin-bottom: 14px; }
+.g-result.win { background: color-mix(in srgb, var(--good) 18%, var(--surface)); }
+.g-result.loss { background: color-mix(in srgb, var(--bad) 16%, var(--surface)); }
+.g-result .big { font-size: 1.6rem; font-weight: 800; margin: 0; }
+.g-turn { border-left: 4px solid var(--gold); padding: 4px 0 4px 12px; }
+.g-turn p { margin: 6px 0; }
+.g-reco { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.g-reco:last-child { border-bottom: 0; }
+.g-reco .delta { color: var(--good); font-weight: 800; }
+.g-split { display: flex; height: 18px; border-radius: 9px; overflow: hidden; margin: 6px 0; }
+.g-split span { display: block; height: 100%; }
+.g-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.8rem; color: var(--muted); }
+.g-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.g-toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 0.9rem; z-index: 20; max-width: calc(100% - 32px); }
+.g-center { text-align: center; }
+.g-arch { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.g-swatch { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); padding: 0; min-height: 0; }
+.g-swatch[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+#dev-app .dev-back { margin: 12px 16px 0; }
+</style>
+
+<div id="game-app">
+  <header class="g-top">
+    <h1>🥋 Путь к чёрному поясу</h1>
+    <button class="g-dev" id="g-dev" title="Режим разработчика" aria-label="Режим разработчика">⚙️ Лаборатория</button>
+  </header>
+  <section class="g-screen" id="g-onboard" hidden></section>
+  <section class="g-screen" id="g-fighter" hidden></section>
+  <section class="g-screen" id="g-train" hidden></section>
+  <section class="g-screen" id="g-style" hidden></section>
+  <section class="g-screen" id="g-ladder" hidden></section>
+  <section class="g-screen" id="g-match" hidden></section>
+  <section class="g-screen" id="g-review" hidden></section>
+  <nav class="g-nav" id="g-nav" aria-label="Разделы игры" hidden>
+    <div class="g-nav-inner">
+      <button data-screen="fighter"><span class="ico" aria-hidden="true">🥋</span>Боец</button>
+      <button data-screen="train"><span class="ico" aria-hidden="true">⏱️</span>Тренировка<span class="badge" id="g-train-badge"></span></button>
+      <button data-screen="style"><span class="ico" aria-hidden="true">🃏</span>Стиль</button>
+      <button data-screen="ladder"><span class="ico" aria-hidden="true">🪜</span>Лестница</button>
+    </div>
+  </nav>
+</div>
+
+<div id="dev-app" hidden>
+<button class="dev-back" id="dev-back">← В игру</button>
 <header class="app">
   <h1>Симулятор плана БЖЖ</h1>
   <p>Соберите бойца, напишите план поединка и посмотрите, как он сработает — секунда за секундой.</p>
@@ -350,6 +491,7 @@ table.matrix td.cell { text-align: center; font-weight: 600; }
     </div>
   </section>
 </main>
+</div>
 
 <script id="bjj-engine">
 'use strict';
@@ -1853,6 +1995,460 @@ function runEngineSelfTests(matches) {
   return results;
 }
 
+/* =====================================================================
+ * GAME LAYER: progression data, style cards, ladder, post-match analysis.
+ * Still pure: no DOM, no clock. The UI passes in times and renders text.
+ * ===================================================================== */
+
+/* ---------------- Game data ---------------- */
+const GAME = {
+  xpPerLevel: 100,
+  beltCaps: { white: 6, blue: 7, purple: 8, brown: 9, black: 10 },
+  rungsPerBelt: 3,
+  // Opponent point totals grow with the rung: attributes and techniques.
+  opponent: { attrBase: 21, attrPerRung: 1.65, techBase: 12, techPerRung: 1.35 },
+  analysis: { variantMatches: 200, minUsefulDelta: 0.03 },
+};
+
+// Training sessions: duration in hours, xp gains per stat.
+const TRAININGS = [
+  { id: 'cardio',      icon: '🫁', name: 'Кардио-интервалы',       hours: 4, gains: { cardio: 100 } },
+  { id: 'grip',        icon: '✊', name: 'Сила хвата',              hours: 4, gains: { gripStrength: 100 } },
+  { id: 'mobility',    icon: '🧘', name: 'Мобильность и растяжка',  hours: 4, gains: { flexibility: 100 } },
+  { id: 'strength',    icon: '🏋️', name: 'Силовая: база и давление', hours: 6, gains: { pressure: 100, defense: 50 } },
+  { id: 'power',       icon: '⚡', name: 'Взрывная сила',           hours: 6, gains: { explosiveness: 100, takedowns: 50 } },
+  { id: 'wrestling',   icon: '🤼', name: 'Борьба в стойке',         hours: 6, gains: { takedowns: 100, explosiveness: 50 } },
+  { id: 'guard',       icon: '🦵', name: 'Драйлы гарда',            hours: 6, gains: { guard: 100, flexibility: 50 } },
+  { id: 'passing',     icon: '➡️', name: 'Проходы гарда',           hours: 6, gains: { passing: 100, pressure: 50 } },
+  { id: 'transitions', icon: '🔄', name: 'Переходы и контроли',     hours: 6, gains: { transitions: 100, pressure: 50 } },
+  { id: 'subs',        icon: '🔒', name: 'Сабмишены',               hours: 6, gains: { submissions: 100, gripStrength: 50 } },
+  { id: 'escapes',     icon: '🛡️', name: 'Выходы и защита',         hours: 6, gains: { escapes: 100, defense: 50 } },
+  { id: 'sparring',    icon: '🥋', name: 'Открытые спарринги',      hours: 8, gains: { cardio: 40, defense: 40, guard: 40, passing: 40, transitions: 40, escapes: 40 } },
+];
+
+// Style cards. Each option compiles to plan steps (primary, fallback, condition, tries).
+// `requires` lists the stat levels that unlock the option.
+const STYLE_SLOTS = [
+  { id: 'standing', name: 'Стойка', options: [
+    { id: 'takedown', name: 'Проход в ноги', summary: 'Взять воротник и пройти в ноги.', requires: { takedowns: 3 },
+      steps: [['st_collar', null, 'always', 2], ['single_leg', 'double_leg', 'always', 3]] },
+    { id: 'pull', name: 'Затянуть в гард', summary: 'Взять захват и сразу сесть в свой гард.', requires: { guard: 3 },
+      steps: null },  // depends on the bottom card, see compileStyle
+    { id: 'counter', name: 'Ждать и контратаковать', summary: 'Сбрасывать захваты и срывать вниз, когда соперник проходит.', requires: { pressure: 5 },
+      steps: [['st_collar', 'st_break_grips', 'always', 2], ['snap_down', 'double_leg', 'if_opponent_stands', 3]] },
+  ] },
+  { id: 'top', name: 'Сверху', options: [
+    { id: 'pressure', name: 'Давить и проходить', summary: 'Колено вперёд, полугард, кроссфейс, проход коленом.', requires: { passing: 2 },
+      steps: [['cg_knee_through', 'dlr_kill_hook', 'if_i_am_on_top', 3], ['hg_crossface', 'og_smash', 'always', 3], ['hg_knee_slice', 'og_toreando', 'always', 3]] },
+    { id: 'speed', name: 'Быстрые проходы', summary: 'Встать, взять штаны, тореадор и лег-драг.', requires: { passing: 4, explosiveness: 5 },
+      steps: [['cg_stand_open', 'cg_posture_up', 'if_i_am_on_top', 3], ['og_pant', 'dlr_top_pant', 'always', 2], ['og_toreando', 'dlr_leg_drag', 'always', 3]] },
+    { id: 'ride', name: 'Держать позицию', summary: 'Держать осанку, сбрасывать захваты, не давать свипов.', requires: { transitions: 4 },
+      steps: [['cg_posture_up', 'og_break_grips', 'if_i_am_on_top', 3], ['cg_break_grips', 'dlr_break_grips', 'if_i_am_on_top', 3], ['hg_crossface', 'og_smash', 'always', 2]] },
+  ] },
+  { id: 'bottom', name: 'Снизу', options: [
+    { id: 'closed', name: 'Закрытый гард и рычаг', summary: 'Закрыть гард, сломать осанку, рычаг или ножницы.', requires: { guard: 3 },
+      steps: [['og_close_guard', 'hg_recover_guard', 'if_i_am_on_bottom', 3], ['cg_break_posture', 'cg_sleeve', 'always', 3], ['cg_armbar', 'cg_scissor_sweep', 'always', 3]] },
+    { id: 'dlr', name: 'Де ла Рива и спина', summary: 'Зацеп де ла Рива, пояс, беримболо на спину.', requires: { guard: 5, flexibility: 5 },
+      steps: [['og_to_dlr', 'hg_underhook', 'if_i_am_on_bottom', 2], ['dlr_pant', 'dlr_sleeve', 'always', 2], ['dlr_berimbolo', 'dlr_sweep', 'always', 3]] },
+    { id: 'survive', name: 'Выжить и встать', summary: 'Рамки, выходы из-под контроля, вставание.', requires: { escapes: 3 },
+      steps: [['sc_frames', 'mt_frames', 'if_i_am_on_bottom', 2], ['sc_shrimp_guard', 'mt_elbow_knee', 'if_i_am_on_bottom', 3], ['og_stand_up', 'tt_stand_up', 'if_i_am_on_bottom', 2]] },
+  ] },
+  { id: 'finish', name: 'Добивание', options: [
+    { id: 'opportunistic', name: 'Что даст соперник', summary: 'Рука в маунте или удушение со спины, что откроется первым.', requires: {},
+      steps: [['mt_isolate_arm', 'bk_hooks', 'always', 2], ['mt_armbar', 'bk_rnc', 'always', 3]] },
+    { id: 'armlocks', name: 'Рычаги', summary: 'Изолировать руку: рычаг из маунта, кимура с бокового.', requires: { submissions: 4 },
+      steps: [['mt_isolate_arm', 'sc_isolate_arm', 'always', 2], ['mt_armbar', 'sc_kimura', 'always', 3]] },
+    { id: 'chokes', name: 'Удушения', summary: 'Крюки и удушение сзади, крест-накрест из маунта.', requires: { submissions: 4 },
+      steps: [['bk_hooks', 'mt_collar', 'always', 2], ['bk_rnc', 'mt_cross_collar', 'always', 3]] },
+  ] },
+];
+const RISK_LEVELS = {
+  careful: { name: 'Осторожно', summary: 'Меньше попыток на каждый шаг, бережёт силы.', tries: -1 },
+  balanced: { name: 'Взвешенно', summary: 'Как задумано в карточках.', tries: 0 },
+  aggressive: { name: 'Агрессивно', summary: 'Три попытки на всё, силы тают быстрее.', tries: 3 },
+};
+
+// Starting builds: 28 attribute and 18 technique points, all within the white-belt cap.
+const STARTERS = {
+  pressure_passer: {
+    attributes: { gripStrength: 5, pressure: 6, flexibility: 3, explosiveness: 4, cardio: 6, defense: 4 },
+    techniques: { takedowns: 3, guard: 2, passing: 5, transitions: 3, submissions: 2, escapes: 3 },
+    style: { standing: 'takedown', top: 'pressure', bottom: 'survive', finish: 'opportunistic', risk: 'balanced' },
+  },
+  guard_player: {
+    attributes: { gripStrength: 5, pressure: 3, flexibility: 6, explosiveness: 4, cardio: 6, defense: 4 },
+    techniques: { takedowns: 2, guard: 5, passing: 2, transitions: 3, submissions: 4, escapes: 2 },
+    style: { standing: 'pull', top: 'pressure', bottom: 'closed', finish: 'armlocks', risk: 'balanced' },
+  },
+  wrestler: {
+    attributes: { gripStrength: 5, pressure: 4, flexibility: 3, explosiveness: 6, cardio: 6, defense: 4 },
+    techniques: { takedowns: 5, guard: 2, passing: 3, transitions: 4, submissions: 1, escapes: 3 },
+    style: { standing: 'takedown', top: 'ride', bottom: 'survive', finish: 'opportunistic', risk: 'balanced' },
+  },
+  submission_hunter: {
+    attributes: { gripStrength: 5, pressure: 3, flexibility: 6, explosiveness: 4, cardio: 5, defense: 5 },
+    techniques: { takedowns: 2, guard: 4, passing: 2, transitions: 3, submissions: 5, escapes: 2 },
+    style: { standing: 'pull', top: 'pressure', bottom: 'closed', finish: 'opportunistic', risk: 'balanced' },
+  },
+};
+
+// Stat profiles used to spread an opponent's points; the numbers are relative weights.
+const OPPONENT_PROFILES = {
+  pressure: { archetype: 'pressure_passer', build: 'pressure',
+    style: { standing: 'counter', top: 'pressure', bottom: 'survive', finish: 'chokes', risk: 'balanced' } },
+  closed_guard: { archetype: 'guard_player', build: 'closed_guard',
+    style: { standing: 'pull', top: 'pressure', bottom: 'closed', finish: 'armlocks', risk: 'balanced' } },
+  dlr: { archetype: 'guard_player', build: 'dlr',
+    style: { standing: 'pull', top: 'speed', bottom: 'dlr', finish: 'chokes', risk: 'balanced' } },
+  wrestler: { archetype: 'wrestler', build: 'wrestler',
+    style: { standing: 'takedown', top: 'ride', bottom: 'survive', finish: 'opportunistic', risk: 'balanced' } },
+  hunter: { archetype: 'submission_hunter', build: 'hunter',
+    style: { standing: 'pull', top: 'pressure', bottom: 'closed', finish: 'opportunistic', risk: 'aggressive' } },
+};
+const HUNTER_BUILD = {
+  attributes: { gripStrength: 7, pressure: 4, flexibility: 9, explosiveness: 6, cardio: 7, defense: 7 },
+  techniques: { takedowns: 3, guard: 7, passing: 3, transitions: 5, submissions: 9, escapes: 3 },
+};
+const LADDER = [
+  { name: 'Артём «Новенький»', profile: 'closed_guard', gi: '#f4f1ea' },
+  { name: 'Олег «Бульдозер»', profile: 'pressure', gi: '#1d3b8b' },
+  { name: 'Саша «Ноги»', profile: 'wrestler', gi: '#f4f1ea' },
+  { name: 'Лиза «Паук»', profile: 'dlr', gi: '#111111' },
+  { name: 'Рустам «Замок»', profile: 'hunter', gi: '#1d3b8b' },
+  { name: 'Игорь «Каток»', profile: 'pressure', gi: '#111111' },
+  { name: 'Дина «Треугольник»', profile: 'closed_guard', gi: '#f4f1ea' },
+  { name: 'Тимур «Сапсан»', profile: 'wrestler', gi: '#1d3b8b' },
+  { name: 'Вика «Беримболо»', profile: 'dlr', gi: '#f4f1ea' },
+  { name: 'Мага «Удав»', profile: 'hunter', gi: '#111111' },
+  { name: 'Павел «Плита»', profile: 'pressure', gi: '#f4f1ea' },
+  { name: 'Серёга «Дабл»', profile: 'wrestler', gi: '#111111' },
+  { name: 'Кира «Рычаг»', profile: 'closed_guard', gi: '#1d3b8b' },
+  { name: 'Нико «Спина»', profile: 'dlr', gi: '#f4f1ea' },
+  { name: 'Мастер Жуков', profile: 'hunter', gi: '#111111' },
+];
+
+/* ---------------- Progression ---------------- */
+function beltCap(belt) { return GAME.beltCaps[belt] || GAME.beltCaps.black; }
+function statGroup(key) { return ATTRIBUTE_KEYS.includes(key) ? 'attributes' : 'techniques'; }
+
+function newGameFighter(name, archetype) {
+  const s = STARTERS[archetype] || STARTERS.guard_player;
+  return {
+    fighter: {
+      name: name || 'Мой боец', archetype, giColor: '#f4f1ea', beltRank: 'white', tapPolicy: 'balanced',
+      attributes: { ...s.attributes }, techniques: { ...s.techniques },
+    },
+    xp: Object.fromEntries([...ATTRIBUTE_KEYS, ...TECHNIQUE_KEYS].map(k => [k, 0])),
+    style: { ...s.style },
+  };
+}
+
+// Apply a finished training. Returns [{stat, levels, xp, capped}] describing what happened.
+function applyTraining(state, trainingId) {
+  const t = TRAININGS.find(x => x.id === trainingId);
+  const out = [];
+  if (!t) return out;
+  const cap = beltCap(state.fighter.beltRank);
+  for (const key in t.gains) {
+    const g = statGroup(key);
+    let levels = 0;
+    const capped = state.fighter[g][key] >= cap;
+    if (!capped) {
+      state.xp[key] += t.gains[key];
+      while (state.xp[key] >= GAME.xpPerLevel && state.fighter[g][key] < cap) {
+        state.xp[key] -= GAME.xpPerLevel;
+        state.fighter[g][key]++;
+        levels++;
+      }
+      if (state.fighter[g][key] >= cap) state.xp[key] = 0;
+    }
+    out.push({ stat: key, gained: capped ? 0 : t.gains[key], levels, capped: state.fighter[g][key] >= cap });
+  }
+  return out;
+}
+
+function optionUnlocked(fighter, option) {
+  for (const k in option.requires) if (statValue(fighter, k) < option.requires[k]) return false;
+  return true;
+}
+function styleOption(slotId, optionId) {
+  const slot = STYLE_SLOTS.find(s => s.id === slotId);
+  return slot && slot.options.find(o => o.id === optionId);
+}
+
+// Style cards -> ordinary engine plan (at most 10 steps).
+function compileStyle(style) {
+  const steps = [];
+  const add = list => { for (const [p, f, c, n] of list) steps.push({ primary: p, fallback: f, condition: c, maxAttempts: n }); };
+  const standing = styleOption('standing', style.standing) || styleOption('standing', 'takedown');
+  if (standing.id === 'pull') {
+    add(style.bottom === 'dlr' ? [['st_sleeve', null, 'always', 2], ['pull_dlr', null, 'always', 2]]
+      : [['st_collar', null, 'always', 2], ['pull_closed_guard', null, 'always', 2]]);
+  } else add(standing.steps);
+  for (const slot of ['top', 'bottom', 'finish']) {
+    const o = styleOption(slot, style[slot]) || STYLE_SLOTS.find(s => s.id === slot).options[0];
+    add(o.steps);
+  }
+  const risk = RISK_LEVELS[style.risk] || RISK_LEVELS.balanced;
+  for (const st of steps) {
+    if (risk.tries === 3) st.maxAttempts = 3;
+    else if (risk.tries < 0) st.maxAttempts = Math.max(1, st.maxAttempts - 1);
+  }
+  const name = STYLE_SLOTS.map(s => (styleOption(s.id, style[s.id]) || {}).name).filter(Boolean).join(' · ');
+  return { name, steps: steps.slice(0, CONFIG.match.maxPlanSteps) };
+}
+
+// Spread `total` points over keys by weight, each within [1, cap].
+function spreadPoints(weights, total, cap) {
+  const keys = Object.keys(weights);
+  const out = Object.fromEntries(keys.map(k => [k, 1]));
+  let left = total - keys.length;
+  while (left > 0) {
+    // Give the next point to the stat furthest below its weighted share.
+    let best = null, bestGap = -Infinity;
+    const sumW = keys.reduce((s, k) => s + weights[k], 0);
+    for (const k of keys) {
+      if (out[k] >= cap) continue;
+      const gap = weights[k] / sumW * total - out[k];
+      if (gap > bestGap) { bestGap = gap; best = k; }
+    }
+    if (!best) break;
+    out[best]++;
+    left--;
+  }
+  return out;
+}
+
+function rungBelt(rung) { return BELTS[Math.min(BELTS.length - 1, Math.floor(rung / GAME.rungsPerBelt))]; }
+function ladderOpponent(rung) {
+  const L = LADDER[rung];
+  const prof = OPPONENT_PROFILES[L.profile];
+  const build = prof.build === 'hunter' ? HUNTER_BUILD : PRESET_FIGHTERS[prof.build];
+  const belt = rungBelt(rung);
+  const cap = beltCap(belt);
+  const o = GAME.opponent;
+  return {
+    rung, profile: L.profile, style: { ...prof.style },
+    fighter: {
+      name: L.name, archetype: prof.archetype, giColor: L.gi, beltRank: belt, tapPolicy: 'balanced',
+      attributes: spreadPoints(build.attributes, Math.round(o.attrBase + o.attrPerRung * rung), cap),
+      techniques: spreadPoints(build.techniques, Math.round(o.techBase + o.techPerRung * rung), cap),
+    },
+  };
+}
+// Belt earned by beating `rung` (null if no promotion).
+function promotionFor(rung) {
+  if ((rung + 1) % GAME.rungsPerBelt !== 0) return null;
+  const idx = (rung + 1) / GAME.rungsPerBelt;
+  return idx < BELTS.length ? BELTS[idx] : null;
+}
+
+/* ---------------- Post-match analysis ----------------
+ * Everything here returns structured data (ids, ticks, numbers); the UI words it.
+ */
+// Rough value of each position for the fighter holding roles[0], in points.
+const POSITION_VALUE = {
+  standing: 0, closed_guard: 0.2, open_guard: 0.4, de_la_riva: 0.3, spider: 0.3, half_guard: 0.6,
+  side_control: 2.2, knee_on_belly: 2.4, mount: 3.2, back: 3.8, turtle: 1.2,
+};
+function winChanceAt(snap, me, ticksLeft) {
+  const them = 1 - me;
+  let edge = (snap.points[me] - snap.points[them]) + 0.5 * (snap.adv[me] - snap.adv[them]);
+  if (snap.dom !== null) edge += (snap.dom === me ? 1 : -1) * POSITION_VALUE[snap.pos];
+  const spread = 1.2 + 0.3 * ticksLeft;
+  return 1 / (1 + Math.exp(-1.7 * edge / spread));
+}
+function momentum(result, me) {
+  const T = CONFIG.match.ticks;
+  const series = [0.5];
+  result.log.forEach((e, k) => {
+    const last = k === result.log.length - 1;
+    if (last && result.method === 'submission') series.push(result.winner === me ? 1 : 0);
+    else series.push(winChanceAt(e.state, me, T - e.tick - 1));
+  });
+  return series;
+}
+
+// When did `who` start holding `grip` (continuously) before tick k? Returns {tick, actionId}.
+function gripAcquired(result, who, kind, item, k) {
+  let start = k;
+  for (let t = k - 1; t >= 0; t--) {
+    if (result.log[t].state[kind][who].includes(item)) start = t; else break;
+  }
+  if (start === k) return null;
+  const e = result.log[start];
+  const att = e.attempts.find(a => a.actor === who && (a.outcome === 'success' || a.outcome === 'partial'));
+  const mv = e.events.find(ev => ev.type === 'move' && ev.who === who);
+  return { tick: start, actionId: att ? att.actionId : mv ? mv.actionId : null, heldTicks: k - start };
+}
+
+function explainTick(result, me, k) {
+  const e = result.log[k];
+  const them = 1 - me;
+  const ex = { tick: k, pos: e.pos, dom: e.dom, events: e.events, attempts: e.attempts, cause: null };
+  // The decisive attempt: a success or reversal that moved the fight or scored.
+  const att = e.attempts.find(a => a.outcome === 'success' || a.outcome === 'reversal') || e.attempts[0] || null;
+  if (!att) return ex;
+  const reversed = att.outcome === 'reversal';
+  const actor = reversed ? 1 - att.actor : att.actor;
+  const actionId = reversed ? att.counterId : att.actionId;
+  const a = ACTIONS[actionId];
+  ex.cause = { actor, actionId, reversed, failedActionId: reversed ? att.actionId : null, chance: att.chance, roll: att.roll, setup: [], answers: [] };
+  // What made it possible: grips/flags the actor needed, when they got them, what the victim could have done.
+  const victim = 1 - actor;
+  for (const kind of ['grips', 'flags']) {
+    for (const item of a.requires[kind]) {
+      const got = gripAcquired(result, actor, kind, item, k);
+      // Role at the start of the tick (e.state is already after the move).
+      const p = POSITIONS[e.pos];
+      const victimRole = p.kind === 'neutral' ? 'neutral' : e.dom === victim ? p.roles[0] : p.roles[1];
+      const answers = ACTION_LIST.filter(x => x.fromList.includes(e.pos) && x.role === victimRole && x.removes[kind].includes(item)).map(x => x.id);
+      let tried = 0;
+      if (got) for (let t = got.tick + 1; t < k; t++) {
+        const it = result.log[t].intents[victim];
+        if (it && answers.includes(it.actionId)) tried++;
+      }
+      ex.cause.setup.push({ kind, item, acquired: got, answers, victimTried: tried });
+    }
+  }
+  // The largest helping factor in the actor's chance, apart from the base.
+  const parts = ['attr', 'archetype', 'stamina', 'familiarity', 'reaction', 'instinct'];
+  ex.cause.topFactor = parts.reduce((best, p) => (att.chance[p] > (best ? att.chance[best] : 0) ? p : best), null);
+  ex.cause.lucky = !reversed && att.chance.total < 0.25;
+  return ex;
+}
+
+function analyseMatch(result, me) {
+  const them = 1 - me;
+  const series = momentum(result, me);
+  const deltas = series.slice(1).map((p, k) => ({ tick: k, d: p - series[k] }));
+  const won = result.winner === me;
+  const sorted = deltas.slice().sort((x, y) => (won ? y.d - x.d : x.d - y.d));
+  let turning = sorted[0];
+  if (result.method === 'submission') {
+    const lastTick = result.log.length - 1;
+    const beforeFinish = sorted.find(x => x.tick !== lastTick);
+    if (beforeFinish && Math.abs(beforeFinish.d) >= 0.12) turning = beforeFinish;
+  }
+  const turningPoint = turning && Math.abs(turning.d) >= 0.04 ? { ...explainTick(result, me, turning.tick), delta: turning.d } : null;
+
+  // Key moments: every tick where the position or score changed, biggest swings first (max 6), in time order.
+  const moments = deltas
+    .filter(x => result.log[x.tick].events.some(ev => ev.type === 'move' || ev.type === 'points' || ev.type === 'submission' || ev.type === 'sub_survived'))
+    .sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 6).sort((x, y) => x.tick - y.tick)
+    .map(x => ({ ...explainTick(result, me, x.tick), delta: x.d }));
+
+  // Time by situation and plan coverage (ticks where my plan had nothing to offer).
+  const time = { dominant: 0, standing: 0, guardTop: 0, guardBottom: 0, stuck: 0 };
+  const uncovered = {};
+  const attempts = [{}, {}];
+  for (const e of result.log) {
+    const kind = POSITIONS[e.pos].kind;
+    const myRole = kind === 'neutral' ? 'neutral' : (e.dom === me ? POSITIONS[e.pos].roles[0] : POSITIONS[e.pos].roles[1]);
+    if (kind === 'neutral') time.standing++;
+    else if (kind === 'guard') time[myRole === 'top' ? 'guardTop' : 'guardBottom']++;
+    else if (myRole === 'top' || myRole === 'back_taker') time.dominant++;
+    else time.stuck++;
+    const it = e.intents[me];
+    if (!it || it.source === 'default') {
+      const key = e.pos + '|' + myRole;
+      uncovered[key] = (uncovered[key] || 0) + 1;
+    }
+    for (const a of e.attempts) {
+      const c = ACTIONS[a.actionId].category;
+      const bucket = attempts[a.actor][c] = attempts[a.actor][c] || { tries: 0, ok: 0 };
+      bucket.tries++;
+      if (a.outcome === 'success') bucket.ok++;
+    }
+  }
+  const gaps = Object.entries(uncovered).map(([key, ticks]) => {
+    const [pos, role] = key.split('|');
+    // Which style options would have given me something to do here?
+    const fixes = [];
+    for (const slot of STYLE_SLOTS) for (const o of slot.options) {
+      const plan = o.steps || [];
+      if (plan.some(([p, f]) => [p, f].some(id => id && ACTIONS[id].fromList.includes(pos) && ACTIONS[id].role === role))) fixes.push({ slot: slot.id, option: o.id });
+    }
+    return { pos, role, ticks, fixes };
+  }).filter(g => g.ticks >= 3).sort((x, y) => y.ticks - x.ticks);
+
+  return { won, method: result.method, series, turningPoint, moments, time, gaps, attempts: { mine: attempts[me], theirs: attempts[them] } };
+}
+
+// Win count of fighters[0] over a fixed list of seeds (common random numbers across variants).
+function winsOver(fighters, plans, seeds) {
+  let w = 0;
+  for (const s of seeds) if (runMatch(fighters, plans, s, { log: false }).winner === 0) w++;
+  return w;
+}
+// "What if" variants for recommendations: +1 to each stat below the cap, and every unlocked alternative card.
+function analysisVariants(me, style) {
+  const cap = beltCap(me.beltRank);
+  const out = [{ kind: 'base', fighter: me, plan: compileStyle(style) }];
+  for (const key of [...ATTRIBUTE_KEYS, ...TECHNIQUE_KEYS]) {
+    const g = statGroup(key);
+    if (me[g][key] >= cap) continue;
+    const f = JSON.parse(JSON.stringify(me));
+    f[g][key]++;
+    out.push({ kind: 'stat', stat: key, fighter: f, plan: compileStyle(style) });
+  }
+  for (const slot of STYLE_SLOTS) for (const o of slot.options) {
+    if (o.id === style[slot.id] || !optionUnlocked(me, o)) continue;
+    out.push({ kind: 'style', slot: slot.id, option: o.id, fighter: me, plan: compileStyle({ ...style, [slot.id]: o.id }) });
+  }
+  return out;
+}
+function trainingsFor(stat) {
+  return TRAININGS.filter(t => t.gains[stat]).sort((a, b) => b.gains[stat] - a.gains[stat]).map(t => t.id);
+}
+
+/* ---------------- Game self-tests ---------------- */
+function runGameSelfTests() {
+  const results = [];
+  const check = (name, ok, detail) => results.push({ name, ok: !!ok, detail: ok ? '' : detail || '' });
+  const bad = [];
+  for (const slot of STYLE_SLOTS) for (const o of slot.options) for (const s of (o.steps || [])) {
+    for (const id of [s[0], s[1]]) if (id && !ACTIONS[id]) bad.push(o.id + ': ' + id);
+    if (!CONDITIONS[s[2]]) bad.push(o.id + ': condition ' + s[2]);
+  }
+  for (const t of TRAININGS) for (const k in t.gains) if (!STAT_LABELS[k]) bad.push(t.id + ': ' + k);
+  check('Карточки стиля и тренировки ссылаются на существующие приёмы и характеристики', !bad.length, bad.join('; '));
+  let longest = 0;
+  for (const st of STYLE_SLOTS[0].options) for (const tp of STYLE_SLOTS[1].options) for (const bt of STYLE_SLOTS[2].options) for (const fn of STYLE_SLOTS[3].options) {
+    longest = Math.max(longest, compileStyle({ standing: st.id, top: tp.id, bottom: bt.id, finish: fn.id, risk: 'balanced' }).steps.length);
+  }
+  check('Любая комбинация карточек даёт план не длиннее 10 шагов', longest <= CONFIG.match.maxPlanSteps, 'шагов: ' + longest);
+  const starterBad = [];
+  for (const k in STARTERS) {
+    const s = STARTERS[k];
+    const g = newGameFighter('x', k);
+    const cap = beltCap('white');
+    for (const key of [...ATTRIBUTE_KEYS, ...TECHNIQUE_KEYS]) if (statValue(g.fighter, key) > cap || statValue(g.fighter, key) < 1) starterBad.push(k + ': ' + key);
+    for (const slot of STYLE_SLOTS) if (!optionUnlocked(g.fighter, styleOption(slot.id, s.style[slot.id]))) starterBad.push(k + ': закрыта карточка ' + s.style[slot.id]);
+  }
+  check('Стартовые бойцы в пределах белого пояса и их карточки открыты', !starterBad.length, starterBad.join('; '));
+  const ladderBad = [];
+  for (let r = 0; r < LADDER.length; r++) {
+    const o = ladderOpponent(r);
+    const v = validateFighter(o.fighter);
+    if (v.issues.some(i => i.key)) ladderBad.push(r + ': ' + v.issues.map(i => i.msg).join(','));
+    const cap = beltCap(o.fighter.beltRank);
+    for (const key of [...ATTRIBUTE_KEYS, ...TECHNIQUE_KEYS]) if (statValue(o.fighter, key) > cap) ladderBad.push(r + ': ' + key + ' выше пояса');
+  }
+  check('Соперники лестницы корректны и не выше потолка своего пояса', !ladderBad.length, ladderBad.join('; '));
+  const g = newGameFighter('x', 'wrestler');
+  const before = g.fighter.attributes.gripStrength;
+  applyTraining(g, 'grip');
+  check('Тренировка на 100 опыта поднимает характеристику на 1', g.fighter.attributes.gripStrength === before + 1);
+  for (let i = 0; i < 10; i++) applyTraining(g, 'grip');
+  check('Характеристика не растёт выше потолка пояса', g.fighter.attributes.gripStrength === beltCap('white'));
+  const opp = ladderOpponent(3);
+  const r = runMatch([g.fighter, opp.fighter], [compileStyle(g.style), compileStyle(opp.style)], 99);
+  const an = analyseMatch(r, 0);
+  check('Разбор схватки строится и даёт ряд шансов на каждый отрезок', an.series.length === r.log.length + 1 && an.series.every(p => p >= 0 && p <= 1));
+  return results;
+}
+
 return {
   CONFIG, ATTRIBUTE_KEYS, TECHNIQUE_KEYS, STAT_LABELS, CATEGORIES, CATEGORY_LABELS, TAP_POLICIES, BELTS, BELT_LABELS,
   POSITIONS, ROLE_LABELS, GRIPS, FLAGS, WEIGHTS, ACTION_LIST, ACTIONS, ARCHETYPES, CONDITIONS,
@@ -1861,6 +2457,10 @@ return {
   runMatch, validatePlan, validateFighter, maxStamina, roleOf, normalisePlan,
   newBatch, recordMatch, summariseBatch, planJobs, runJob, presetEntries, wilson,
   runEngineSelfTests, checkMatchInvariants,
+  GAME, TRAININGS, STYLE_SLOTS, RISK_LEVELS, STARTERS, LADDER, OPPONENT_PROFILES,
+  beltCap, statGroup, statValue, newGameFighter, applyTraining, optionUnlocked, styleOption, compileStyle,
+  spreadPoints, ladderOpponent, rungBelt, promotionFor, analyseMatch, momentum, winsOver, analysisVariants, trainingsFor,
+  runGameSelfTests,
 };
 })();
 if (typeof globalThis !== 'undefined') globalThis.BJJ = BJJ;
@@ -2561,7 +3161,7 @@ $('l-csv').addEventListener('click', () => {
 
 $('l-tests').addEventListener('click', () => {
   const ul = clear($('l-test-results'));
-  const results = [...B.runDataSelfTests(), ...B.runEngineSelfTests(300)];
+  const results = [...B.runDataSelfTests(), ...B.runEngineSelfTests(300), ...B.runGameSelfTests()];
   for (const r of results) ul.append(el('li', { class: r.ok ? 'pass' : 'fail' }, (r.ok ? 'Пройдено: ' : 'Ошибка: ') + r.name + (r.ok ? '' : ' (' + r.detail + ')')));
 });
 
@@ -2573,5 +3173,744 @@ renderLabSetup();
 window.bjjApp = app; // handy from the console
 })();
 </script>
+<script id="bjj-game">
+'use strict';
+/* =====================================================================
+ * GAME MODE UI: career, real-time training, style cards, ladder,
+ * match replay and post-match review. Uses the engine's game layer.
+ * ===================================================================== */
+(function () {
+const B = BJJ;
+const $ = id => document.getElementById(id);
+function el(tag, attrs, ...kids) {
+  const n = tag === 'svg' || attrs && attrs.svg ? document.createElementNS('http://www.w3.org/2000/svg', tag) : document.createElement(tag);
+  const isSvg = n.namespaceURI === 'http://www.w3.org/2000/svg';
+  if (attrs) for (const k in attrs) {
+    const v = attrs[k];
+    if (k === 'svg' || v === null || v === undefined || v === false) continue;
+    if (k === 'class') isSvg ? n.setAttribute('class', v) : (n.className = v);
+    else if (k === 'style') n.style.cssText = v;
+    else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+    else if (!isSvg && k in n && k !== 'list') n[k] = v;
+    else n.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) n.append(c.nodeType ? c : String(c));
+  return n;
+}
+const S = (tag, attrs, ...kids) => el(tag, { ...(attrs || {}), svg: true }, ...kids);
+const clear = n => { while (n.firstChild) n.removeChild(n.firstChild); return n; };
+const pct = x => Math.round(100 * x) + '%';
+const clock = tick => { const s = tick * B.CONFIG.match.secondsPerTick; return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const clone = o => JSON.parse(JSON.stringify(o));
+function plural(n, one, few, many) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return many;
+  if (b === 1) return one;
+  if (b >= 2 && b <= 4) return few;
+  return many;
+}
+const BELT_COLOURS = { white: '#f2f2f2', blue: '#2356c7', purple: '#6b3fa0', brown: '#6b4226', black: '#111111' };
+const ARCH_ICON = { pressure_passer: '🪨', guard_player: '🕸️', wrestler: '🤼', submission_hunter: '🐍' };
+const posName = id => B.POSITIONS[id].name;
+const actName = id => B.ACTIONS[id].name;
+const statName = k => B.STAT_LABELS[k];
+
+/* ---------------- storage ---------------- */
+const KEY = 'bjj-game.v1';
+let gs = null;
+function load() { try { const raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(gs)); } catch (e) { /* keep playing in memory */ } }
+function freshClock() { return { anchorReal: Date.now(), anchorGame: Date.now(), speed: 1 }; }
+gs = load();
+if (gs && (!gs.fighter || !gs.style || !gs.clock)) gs = null;
+
+/* ---------------- game clock (real time, with a test speed-up) ---------------- */
+function now() { const c = gs.clock; return c.anchorGame + (Date.now() - c.anchorReal) * c.speed; }
+function setSpeed(x) { gs.clock.anchorGame = now(); gs.clock.anchorReal = Date.now(); gs.clock.speed = x; save(); }
+function skipTo(t) { gs.clock.anchorGame = Math.max(now(), t); gs.clock.anchorReal = Date.now(); save(); }
+function fmtLeft(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  return h ? h + ' ч ' + String(m).padStart(2, '0') + ' мин' : m + ' мин ' + String(sec).padStart(2, '0') + ' с';
+}
+function training() { return gs.training ? B.TRAININGS.find(t => t.id === gs.training.id) : null; }
+function trainingDone() { return gs.training && now() >= gs.training.end; }
+
+/* ---------------- navigation ---------------- */
+let screen = 'fighter';
+const SCREENS = ['onboard', 'fighter', 'train', 'style', 'ladder', 'match', 'review'];
+function show(name) {
+  if (name !== 'match') stopReplay();
+  screen = name;
+  for (const s of SCREENS) $('g-' + s).hidden = s !== name;
+  $('g-nav').hidden = name === 'onboard';
+  for (const b of document.querySelectorAll('#g-nav button')) {
+    if (b.dataset.screen === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  }
+  render();
+  window.scrollTo(0, 0);
+}
+function render() {
+  ({ onboard: renderOnboard, fighter: renderFighter, train: renderTrain, style: renderStyle, ladder: renderLadder,
+    match: () => {}, review: renderReview })[screen]();
+  updateBadge();
+}
+for (const b of document.querySelectorAll('#g-nav button')) b.addEventListener('click', () => show(b.dataset.screen));
+$('g-dev').addEventListener('click', () => { stopReplay(); $('game-app').hidden = true; $('dev-app').hidden = false; window.scrollTo(0, 0); });
+$('dev-back').addEventListener('click', () => { $('dev-app').hidden = true; $('game-app').hidden = false; render(); });
+
+function toast(msg) {
+  const t = el('div', { class: 'g-toast', role: 'status' }, msg);
+  document.body.append(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+/* ---------------- shared pieces ---------------- */
+function avatar(f, size) {
+  const belt = BELT_COLOURS[f.beltRank] || '#999';
+  return S('svg', { viewBox: '0 0 100 100', width: size, height: size, role: 'img', 'aria-label': f.name },
+    S('circle', { cx: 50, cy: 50, r: 48, fill: 'var(--mat)' }),
+    S('circle', { cx: 50, cy: 28, r: 13, fill: '#e2b48c', stroke: 'var(--text)', 'stroke-width': 1.5 }),
+    S('path', { d: 'M24 92 L28 56 Q30 44 42 42 L58 42 Q70 44 72 56 L76 92 Z', fill: f.giColor || '#f4f1ea', stroke: 'var(--text)', 'stroke-width': 1.5 }),
+    S('path', { d: 'M42 42 L50 60 L58 42', fill: 'none', stroke: 'var(--text)', 'stroke-width': 1.5 }),
+    S('rect', { x: 27, y: 66, width: 46, height: 7, fill: belt, stroke: 'var(--text)', 'stroke-width': 1 }),
+    S('path', { d: 'M46 72 L42 84 M54 72 L58 84', stroke: belt, 'stroke-width': 4, 'stroke-linecap': 'round' }));
+}
+function beltChip(belt) {
+  return el('span', { class: 'g-chip belt', style: 'border-color:' + BELT_COLOURS[belt] }, B.BELT_LABELS[belt]);
+}
+function radar(f, cap) {
+  const keys = B.ATTRIBUTE_KEYS;
+  const cx = 150, cy = 118, R = 84;
+  const pt = (i, v) => {
+    const a = -Math.PI / 2 + i * 2 * Math.PI / keys.length;
+    return [cx + Math.cos(a) * R * v / 10, cy + Math.sin(a) * R * v / 10];
+  };
+  const poly = vals => vals.map((v, i) => pt(i, v).join(',')).join(' ');
+  const svg = S('svg', { class: 'g-radar', viewBox: '0 0 300 236', role: 'img',
+    'aria-label': 'Физические качества: ' + keys.map(k => statName(k) + ' ' + f.attributes[k]).join(', ') });
+  for (const v of [2.5, 5, 7.5, 10]) svg.append(S('polygon', { points: poly(keys.map(() => v)), fill: 'none', stroke: 'var(--border)' }));
+  svg.append(S('polygon', { points: poly(keys.map(() => cap)), fill: 'none', stroke: 'var(--gold)', 'stroke-dasharray': '4 3' }));
+  svg.append(S('polygon', { points: poly(keys.map(k => f.attributes[k])), fill: 'color-mix(in srgb, var(--me) 30%, transparent)', stroke: 'var(--me)', 'stroke-width': 2 }));
+  keys.forEach((k, i) => {
+    const [x, y] = pt(i, 12.2);
+    svg.append(S('text', { x, y, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 11, fill: 'var(--muted)' }, statName(k) + ' ' + f.attributes[k]));
+  });
+  return svg;
+}
+function statRow(key, value, cap, xp) {
+  return el('div', { class: 'g-stat' }, el('span', null, statName(key)),
+    el('div', { class: 'g-bar', role: 'img', 'aria-label': statName(key) + ': ' + value + ' из ' + cap },
+      el('span', { class: 'xp', style: 'width:' + Math.min(100, (value + xp / B.GAME.xpPerLevel) * 10) + '%' }),
+      el('span', { style: 'width:' + value * 10 + '%' })),
+    el('span', { class: 'v' }, String(value), el('small', null, '/' + cap)));
+}
+
+/* =====================================================================
+ * ONBOARDING
+ * ===================================================================== */
+const onboard = { archetype: 'guard_player', gi: '#f4f1ea', name: '' };
+function renderOnboard() {
+  const root = clear($('g-onboard'));
+  root.append(el('div', { class: 'g-card g-center' },
+    el('h2', null, 'Новый боец'),
+    el('p', { class: 'g-sub' }, 'Вы начинаете белым поясом. Тренируйтесь, выбирайте стиль и поднимайтесь по лестнице из 15 соперников до чёрного пояса.')));
+  const name = el('input', { type: 'text', id: 'g-name', maxLength: 30, value: onboard.name, placeholder: 'Например, Алексей «Кимура»', style: 'width:100%' });
+  name.addEventListener('input', () => { onboard.name = name.value; });
+  const arch = el('div', { class: 'g-arch', role: 'radiogroup', 'aria-label': 'Архетип' });
+  for (const k in B.ARCHETYPES) {
+    const a = B.ARCHETYPES[k];
+    const s = B.STARTERS[k];
+    const top = [...B.ATTRIBUTE_KEYS, ...B.TECHNIQUE_KEYS].sort((x, y) => B.statValue(s, y) - B.statValue(s, x)).slice(0, 3).map(statName);
+    arch.append(el('button', { class: 'g-tile' + (onboard.archetype === k ? ' sel' : ''), role: 'radio', 'aria-checked': onboard.archetype === k ? 'true' : 'false',
+      onclick: () => { onboard.archetype = k; renderOnboard(); } },
+      el('span', { class: 'ico', 'aria-hidden': 'true' }, ARCH_ICON[k]), el('span', { class: 't' }, a.name),
+      el('span', { class: 'd' }, a.summary), el('span', { class: 'd' }, 'Сильные стороны: ' + top.join(', ').toLowerCase())));
+  }
+  const gis = el('div', { class: 'g-row', role: 'radiogroup', 'aria-label': 'Цвет ги' });
+  for (const [c, label] of [['#f4f1ea', 'белое'], ['#1d3b8b', 'синее'], ['#111111', 'чёрное']]) {
+    gis.append(el('button', { class: 'g-swatch', style: 'background:' + c, 'aria-label': 'Ги ' + label, 'aria-pressed': onboard.gi === c ? 'true' : 'false',
+      onclick: () => { onboard.gi = c; renderOnboard(); } }));
+  }
+  root.append(el('div', { class: 'g-card' },
+    el('label', { for: 'g-name', style: 'display:block;font-weight:600;margin-bottom:6px' }, 'Имя бойца'), name,
+    el('h3', null, 'Архетип'), arch,
+    el('h3', null, 'Цвет ги'), gis));
+  root.append(el('button', { class: 'g-btn primary big', onclick: () => {
+    const g = B.newGameFighter(onboard.name.trim() || 'Мой боец', onboard.archetype);
+    g.fighter.giColor = onboard.gi;
+    gs = { v: 1, ...g, training: null, rung: 0, history: [], clock: freshClock(), recommended: [], champion: false };
+    save();
+    show('fighter');
+    toast('Добро пожаловать на ковёр. Начните с тренировки или сразу бросьте вызов первому сопернику.');
+  } }, 'Начать карьеру'));
+}
+
+/* =====================================================================
+ * FIGHTER
+ * ===================================================================== */
+function renderFighter() {
+  const f = gs.fighter;
+  const cap = B.beltCap(f.beltRank);
+  const root = clear($('g-fighter'));
+  const a = B.ARCHETYPES[f.archetype];
+  root.append(el('div', { class: 'g-card' },
+    el('div', { class: 'g-hero' }, avatar(f, 96),
+      el('div', null, el('p', { class: 'name' }, f.name),
+        el('div', { class: 'g-row', style: 'margin:6px 0' }, beltChip(f.beltRank), el('span', { class: 'g-chip' }, ARCH_ICON[f.archetype] + ' ' + a.name)),
+        el('div', { class: 'g-mini' }, gs.champion ? 'Чемпион лестницы 🏆' : 'Лестница: ступень ' + (gs.rung + 1) + ' из ' + B.LADDER.length),
+        el('div', { class: 'g-mini' }, 'Потолок характеристик на этом поясе: ' + cap)))));
+  const t = training();
+  if (t) {
+    root.append(el('button', { class: 'g-card g-tile', style: 'width:100%', onclick: () => show('train') },
+      el('span', { class: 't' }, t.icon + ' ' + t.name),
+      el('span', { class: 'd', id: 'g-fighter-timer' }, trainingDone() ? 'Готово! Заберите результат.' : 'Осталось ' + fmtLeft(gs.training.end - now()))));
+  }
+  root.append(el('div', { class: 'g-card' }, el('h2', null, 'Физические качества'),
+    el('p', { class: 'g-sub' }, 'Пунктир — потолок текущего пояса.'), radar(f, cap),
+    ...B.ATTRIBUTE_KEYS.map(k => statRow(k, f.attributes[k], cap, gs.xp[k]))));
+  root.append(el('div', { class: 'g-card' }, el('h2', null, 'Техника'),
+    el('p', { class: 'g-sub' }, 'Золотая полоска — накопленный опыт до следующего уровня.'),
+    ...B.TECHNIQUE_KEYS.map(k => statRow(k, f.techniques[k], cap, gs.xp[k]))));
+  const wins = gs.history.filter(h => h.won).length;
+  root.append(el('div', { class: 'g-card' }, el('h2', null, 'Карьера'),
+    el('p', null, 'Схваток: ' + gs.history.length + ', побед: ' + wins + '.'),
+    gs.history.length ? el('ul', { class: 'g-feed' }, gs.history.slice().reverse().slice(0, 8).map(h =>
+      el('li', { class: h.won ? 'good' : 'bad' }, el('span', { class: 't' }, h.won ? 'Победа' : 'Пораж.'),
+        el('span', null, h.oppName + ' · ' + methodText(h) + ' ',
+          el('button', { class: 'g-btn ghost', style: 'min-height:30px;padding:2px 8px', onclick: () => openHistory(h) }, 'Разбор'))))) : null,
+    el('button', { class: 'g-btn ghost', style: 'margin-top:10px', onclick: () => {
+      if (confirm('Начать карьеру заново? Весь прогресс будет потерян.')) { gs = null; try { localStorage.removeItem(KEY); } catch (e) {} show('onboard'); }
+    } }, 'Начать карьеру заново')));
+}
+function methodText(h) {
+  if (h.method === 'submission') return 'сабмишен';
+  if (h.method === 'points') return 'по очкам ' + h.points[0] + ':' + h.points[1];
+  return 'по ' + ({ advantages: 'преимуществам', stamina: 'выносливости', coin: 'решению судьи' })[h.method];
+}
+
+/* =====================================================================
+ * TRAINING
+ * ===================================================================== */
+function gainText(t) {
+  return Object.entries(t.gains).map(([k, v]) => '+' + (v >= 100 ? v / 100 : v / 100).toString().replace('.', ',') + ' ' + statName(k)).join(', ');
+}
+function claimTraining() {
+  const t = training();
+  const res = B.applyTraining(gs, t.id);
+  gs.training = null;
+  gs.recommended = (gs.recommended || []).filter(id => id !== t.id);
+  save();
+  const up = res.filter(r => r.levels).map(r => statName(r.stat) + ' ' + B.statValue(gs.fighter, r.stat));
+  const capped = res.filter(r => r.capped).map(r => statName(r.stat));
+  toast(up.length ? 'Новый уровень: ' + up.join(', ') + '.' : 'Опыт получен.' + (capped.length ? ' Упёрлись в потолок пояса: ' + capped.join(', ') + '.' : ''));
+  render();
+}
+function startTraining(id) {
+  const t = B.TRAININGS.find(x => x.id === id);
+  const start = now();
+  gs.training = { id, start, end: start + t.hours * 3600 * 1000 };
+  save();
+  toast('Тренировка началась: ' + t.name + ', ' + t.hours + ' ч.');
+  show('train');
+}
+function ring(frac) {
+  const r = 62, c = 2 * Math.PI * r;
+  return S('svg', { class: 'g-ring', viewBox: '0 0 150 150', role: 'img', 'aria-label': 'Прогресс ' + pct(frac) },
+    S('circle', { cx: 75, cy: 75, r, fill: 'none', stroke: 'var(--surface-2)', 'stroke-width': 12 }),
+    S('circle', { cx: 75, cy: 75, r, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 12, 'stroke-linecap': 'round',
+      'stroke-dasharray': c, 'stroke-dashoffset': c * (1 - frac), transform: 'rotate(-90 75 75)', id: 'g-ring-arc' }));
+}
+function renderTrain() {
+  const root = clear($('g-train'));
+  const t = training();
+  const cap = B.beltCap(gs.fighter.beltRank);
+  if (t) {
+    const done = trainingDone();
+    const frac = Math.min(1, (now() - gs.training.start) / (gs.training.end - gs.training.start));
+    root.append(el('div', { class: 'g-card g-center' },
+      el('h2', null, t.icon + ' ' + t.name), ring(frac),
+      el('div', { class: 'g-timer', id: 'g-train-timer' }, done ? 'Готово!' : fmtLeft(gs.training.end - now())),
+      el('p', { class: 'g-sub' }, gainText(t)),
+      done ? el('button', { class: 'g-btn primary big', onclick: claimTraining }, 'Забрать результат')
+        : el('button', { class: 'g-btn ghost', onclick: () => { if (confirm('Прервать тренировку? Опыт не начислится.')) { gs.training = null; save(); render(); } } }, 'Прервать')));
+  } else {
+    root.append(el('div', { class: 'g-card' }, el('h2', null, 'Чем займёмся?'),
+      el('p', { class: 'g-sub' }, 'Одна тренировка за раз. Пока идёт тренировка, выходить на схватку нельзя. 100 опыта = +1 к характеристике.')));
+  }
+  const grid = el('div', { class: 'g-grid' });
+  const recs = gs.recommended || [];
+  const order = B.TRAININGS.slice().sort((a, b) => (recs.includes(b.id) ? 1 : 0) - (recs.includes(a.id) ? 1 : 0));
+  for (const tr of order) {
+    const allCapped = Object.keys(tr.gains).every(k => B.statValue(gs.fighter, k) >= cap);
+    const rec = (gs.recommended || []).includes(tr.id);
+    grid.append(el('button', { class: 'g-tile' + (rec ? ' rec' : ''), disabled: !!t,
+      onclick: () => startTraining(tr.id) },
+      rec ? el('span', { class: 'rec-tag' }, '★ Советует разбор') : null,
+      el('span', { class: 'ico', 'aria-hidden': 'true' }, tr.icon), el('span', { class: 't' }, tr.name),
+      el('span', { class: 'd' }, tr.hours + ' ч · ' + gainText(tr)),
+      allCapped ? el('span', { class: 'd', style: 'color:var(--bad)' }, 'Всё упёрлось в потолок пояса') : null));
+  }
+  root.append(el('div', { class: 'g-card' }, el('h2', null, 'Тренировки'), grid));
+  // Test controls
+  const speeds = [[1, '×1'], [60, '×60'], [600, '×600'], [3600, '×3600']];
+  root.append(el('div', { class: 'g-test' },
+    el('strong', null, '⏩ Для тестов: скорость времени'),
+    el('div', { class: 'g-row', style: 'margin-top:6px' },
+      speeds.map(([x, label]) => el('button', { 'aria-pressed': gs.clock.speed === x ? 'true' : 'false', onclick: () => { setSpeed(x); render(); } }, label)),
+      t && !trainingDone() ? el('button', { onclick: () => { skipTo(gs.training.end); render(); } }, 'Завершить сейчас') : null),
+    el('div', { class: 'g-mini', style: 'margin-top:6px' }, gs.clock.speed === 1 ? 'Реальное время.' : 'Время идёт в ' + gs.clock.speed + ' раз быстрее.')));
+}
+function updateBadge() {
+  const b = $('g-train-badge');
+  if (!gs || !gs.training) { b.textContent = ''; return; }
+  b.textContent = trainingDone() ? 'готово' : fmtLeft(gs.training.end - now()).replace(/ \d+ с$/, '');
+}
+setInterval(() => {
+  if (!gs || $('game-app').hidden) return;
+  updateBadge();
+  if (!gs.training) return;
+  const left = gs.training.end - now();
+  if (screen === 'train') {
+    const timer = $('g-train-timer');
+    if (left <= 0 && timer && timer.textContent !== 'Готово!') { render(); return; }
+    if (timer && left > 0) timer.textContent = fmtLeft(left);
+    const arc = $('g-ring-arc');
+    if (arc) {
+      const c = 2 * Math.PI * 62;
+      const frac = Math.min(1, (now() - gs.training.start) / (gs.training.end - gs.training.start));
+      arc.setAttribute('stroke-dashoffset', c * (1 - frac));
+    }
+  } else if (screen === 'fighter' && $('g-fighter-timer')) {
+    $('g-fighter-timer').textContent = left <= 0 ? 'Готово! Заберите результат.' : 'Осталось ' + fmtLeft(left);
+  } else if (screen === 'ladder' && $('g-ladder-wait')) {
+    if (left <= 0) render(); else $('g-ladder-wait').textContent = 'Боец на тренировке ещё ' + fmtLeft(left);
+  }
+}, 1000);
+
+/* =====================================================================
+ * STYLE
+ * ===================================================================== */
+function renderStyle() {
+  const root = clear($('g-style'));
+  const f = gs.fighter;
+  root.append(el('div', { class: 'g-card' }, el('h2', null, 'Стиль боя'),
+    el('p', { class: 'g-sub' }, 'Выберите по одной карточке в каждой фазе. Карточки открываются, когда подрастают нужные характеристики.')));
+  for (const slot of B.STYLE_SLOTS) {
+    const opts = el('div', { class: 'g-options', role: 'radiogroup', 'aria-label': slot.name });
+    for (const o of slot.options) {
+      const open = B.optionUnlocked(f, o);
+      const sel = gs.style[slot.id] === o.id;
+      const need = Object.entries(o.requires).map(([k, v]) => statName(k) + ' ' + v).join(', ');
+      opts.append(el('button', { class: 'g-tile' + (sel ? ' sel' : '') + (open ? '' : ' locked'), role: 'radio', 'aria-checked': sel ? 'true' : 'false',
+        disabled: !open, onclick: () => { gs.style[slot.id] = o.id; save(); renderStyle(); } },
+        el('span', { class: 't' }, (open ? '' : '🔒 ') + o.name), el('span', { class: 'd' }, o.summary),
+        !open ? el('span', { class: 'd', style: 'color:var(--gold)' }, 'Нужно: ' + need) : null));
+    }
+    root.append(el('div', { class: 'g-card g-slot' }, el('div', { class: 'g-slot-title' }, slot.name), opts));
+  }
+  const risk = el('div', { class: 'g-options', role: 'radiogroup', 'aria-label': 'Риск' });
+  for (const k in B.RISK_LEVELS) {
+    const r = B.RISK_LEVELS[k];
+    const sel = gs.style.risk === k;
+    risk.append(el('button', { class: 'g-tile' + (sel ? ' sel' : ''), role: 'radio', 'aria-checked': sel ? 'true' : 'false',
+      onclick: () => { gs.style.risk = k; save(); renderStyle(); } }, el('span', { class: 't' }, r.name), el('span', { class: 'd' }, r.summary)));
+  }
+  root.append(el('div', { class: 'g-card g-slot' }, el('div', { class: 'g-slot-title' }, 'Риск'), risk));
+  const plan = B.compileStyle(gs.style);
+  const steps = el('ol', { class: 'small' }, plan.steps.map(s => el('li', null, actName(s.primary) + (s.fallback ? ', иначе ' + actName(s.fallback).toLowerCase() : '') +
+    (s.condition !== 'always' ? ' (' + B.CONDITIONS[s.condition].toLowerCase() + ')' : '') + ', попыток: ' + s.maxAttempts)));
+  root.append(el('details', { class: 'g-card' }, el('summary', { style: 'cursor:pointer;font-weight:600' }, 'Что боец будет делать по шагам'), steps));
+}
+
+/* =====================================================================
+ * LADDER
+ * ===================================================================== */
+function compareRows(me, opp) {
+  const keys = [...B.ATTRIBUTE_KEYS, ...B.TECHNIQUE_KEYS];
+  const diffs = keys.map(k => ({ k, d: B.statValue(me, k) - B.statValue(opp, k) })).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 5);
+  return diffs.map(({ k, d }) => el('div', { class: 'g-cmp' },
+    el('span', { class: 'l ' + (d > 0 ? 'better' : d < 0 ? 'worse' : '') }, String(B.statValue(me, k))),
+    el('span', { class: 'm' }, statName(k)),
+    el('span', { class: d < 0 ? 'better' : d > 0 ? 'worse' : '' }, String(B.statValue(opp, k)))));
+}
+function renderLadder() {
+  const root = clear($('g-ladder'));
+  if (gs.champion) {
+    root.append(el('div', { class: 'g-result win' }, el('p', { class: 'big' }, '🏆 Чемпион лестницы'),
+      el('p', null, 'Все 15 соперников побеждены. Можно продолжать бороться с любым из них ниже.')));
+  }
+  const rung = Math.min(gs.rung, B.LADDER.length - 1);
+  const opp = B.ladderOpponent(rung);
+  const busy = !!gs.training;
+  const oa = B.ARCHETYPES[opp.fighter.archetype];
+  root.append(el('div', { class: 'g-card' },
+    el('div', { class: 'g-mini' }, 'Ступень ' + (rung + 1) + ' из ' + B.LADDER.length + (B.promotionFor(rung) && !gs.champion ? ' · победа даёт ' + B.BELT_LABELS[B.promotionFor(rung)] : '')),
+    el('div', { class: 'g-vs', style: 'margin:10px 0' },
+      el('div', null, avatar(gs.fighter, 72), el('div', { style: 'font-weight:700' }, gs.fighter.name)),
+      el('div', { class: 'vs' }, 'VS'),
+      el('div', null, avatar(opp.fighter, 72), el('div', { style: 'font-weight:700' }, opp.fighter.name),
+        el('div', { class: 'g-row', style: 'justify-content:center;margin-top:4px' }, beltChip(opp.fighter.beltRank), el('span', { class: 'g-chip' }, ARCH_ICON[opp.fighter.archetype] + ' ' + oa.name)))),
+    el('p', { class: 'g-sub g-center' }, 'Стиль соперника: ' + B.STYLE_SLOTS.map(s => B.styleOption(s.id, opp.style[s.id]).name.toLowerCase()).join(' · ')),
+    el('div', { class: 'g-cmp', style: 'font-weight:600' }, el('span', { class: 'l' }, 'Вы'), el('span', { class: 'm' }, 'Самые большие различия'), el('span', null, 'Соперник')),
+    compareRows(gs.fighter, opp.fighter),
+    busy ? el('p', { class: 'g-sub g-center', id: 'g-ladder-wait', style: 'margin-top:12px' }, trainingDone() ? 'Тренировка закончена: заберите результат во вкладке «Тренировка».' : 'Боец на тренировке ещё ' + fmtLeft(gs.training.end - now())) : null,
+    el('button', { class: 'g-btn primary big', style: 'margin-top:12px', disabled: busy, onclick: () => fight(rung) }, 'На ковёр!')));
+  const list = el('ol', { class: 'g-ladder', reversed: true });
+  for (let r = B.LADDER.length - 1; r >= 0; r--) {
+    const L = B.LADDER[r];
+    const cls = r === rung ? 'cur' : r > gs.rung ? 'future' : '';
+    const done = r < gs.rung || gs.champion;
+    list.append(el('li', { class: cls },
+      el('span', { class: 'n' }, String(r + 1)),
+      el('span', null, (r > gs.rung ? '' : L.name), r > gs.rung ? el('span', null, '???') : null,
+        el('span', { class: 'g-mini' }, ' · ' + B.BELT_LABELS[B.rungBelt(r)])),
+      el('span', null, done ? (r === rung && gs.champion ? '' : '✅') : r === rung ? '⚔️' : '🔒',
+        done ? el('button', { class: 'g-btn ghost', style: 'min-height:30px;padding:2px 8px;margin-left:6px', disabled: busy, onclick: () => fight(r) }, 'Спарринг') : null)));
+  }
+  root.append(el('div', { class: 'g-card' }, el('h2', null, 'Лестница'), list));
+}
+
+/* =====================================================================
+ * MATCH + REPLAY
+ * ===================================================================== */
+let current = null;   // { fighters, plans, style, oppStyle, rung, seed, result, analysis, names }
+function fight(rung) {
+  const opp = B.ladderOpponent(rung);
+  const seed = Math.floor(Math.random() * 2 ** 31);
+  const fighters = [clone(gs.fighter), opp.fighter];
+  const plans = [B.compileStyle(gs.style), B.compileStyle(opp.style)];
+  const result = B.runMatch(fighters, plans, seed);
+  const won = result.winner === 0;
+  const entry = { rung, seed, won, method: result.method, points: result.points, oppName: opp.fighter.name,
+    fighter: fighters[0], style: clone(gs.style), at: Date.now(), promotion: null };
+  const onLadder = rung === gs.rung && !gs.champion;
+  if (won && onLadder) {
+    const promo = B.promotionFor(rung);
+    if (promo) { gs.fighter.beltRank = promo; entry.promotion = promo; }
+    if (rung === B.LADDER.length - 1) gs.champion = true; else gs.rung++;
+  }
+  entry.ladderWin = won && onLadder;
+  gs.history.push(entry);
+  if (gs.history.length > 30) gs.history.shift();
+  save();
+  current = { fighters, plans, style: entry.style, oppStyle: opp.style, rung, seed, result, entry,
+    names: [fighters[0].name, opp.fighter.name], analysis: B.analyseMatch(result, 0), reco: null };
+  show('match');
+  startReplay();
+}
+function openHistory(h) {
+  const opp = B.ladderOpponent(h.rung);
+  const fighters = [h.fighter, opp.fighter];
+  const plans = [B.compileStyle(h.style), B.compileStyle(opp.style)];
+  const result = B.runMatch(fighters, plans, h.seed);
+  current = { fighters, plans, style: h.style, oppStyle: opp.style, rung: h.rung, seed: h.seed, result, entry: h,
+    names: [h.fighter.name, opp.fighter.name], analysis: B.analyseMatch(result, 0), reco: null, fromHistory: true };
+  show('review');
+}
+
+// Layout of the position map (x, y in a 360 x 230 box).
+const MAP = {
+  standing: [180, 24], closed_guard: [40, 88], open_guard: [110, 88], de_la_riva: [180, 88], spider: [250, 88], half_guard: [320, 88],
+  side_control: [80, 156], knee_on_belly: [180, 156], mount: [280, 156], turtle: [120, 210], back: [240, 210],
+};
+const SHORT = { standing: 'Стойка', closed_guard: 'Закр. гард', open_guard: 'Откр. гард', de_la_riva: 'Де ла Рива', spider: 'Спайдер',
+  half_guard: 'Полугард', side_control: 'Боковой', knee_on_belly: 'Колено', mount: 'Маунт', turtle: 'Черепаха', back: 'Спина' };
+function positionMap(pos, dom) {
+  const svg = S('svg', { class: 'g-map', viewBox: '0 0 360 248', role: 'img', 'aria-label': 'Позиция: ' + posName(pos) });
+  const seen = new Set();
+  for (const a of B.ACTION_LIST) {
+    if (!a.to) continue;
+    for (const f of a.fromList) {
+      const k = [f, a.to].sort().join('|');
+      if (seen.has(k) || f === a.to) continue;
+      seen.add(k);
+      svg.append(S('line', { x1: MAP[f][0], y1: MAP[f][1], x2: MAP[a.to][0], y2: MAP[a.to][1], stroke: 'var(--border)', 'stroke-width': 1 }));
+    }
+  }
+  for (const p in MAP) {
+    const on = p === pos;
+    const colour = !on ? 'var(--surface)' : dom === null ? 'var(--muted)' : dom === 0 ? 'var(--me)' : 'var(--opp)';
+    svg.append(S('circle', { cx: MAP[p][0], cy: MAP[p][1], r: on ? 16 : 11, fill: colour, stroke: on ? 'var(--text)' : 'var(--border)', 'stroke-width': on ? 2 : 1 }));
+    svg.append(S('text', { x: MAP[p][0], y: MAP[p][1] + (on ? 29 : 24), 'text-anchor': 'middle', 'font-size': on ? 11 : 9.5,
+      'font-weight': on ? 700 : 400, fill: on ? 'var(--text)' : 'var(--muted)' }, SHORT[p]));
+  }
+  return svg;
+}
+function momentumChart(series, upto, marks) {
+  const W = 360, H = 120, pad = 6;
+  const x = i => pad + (W - 2 * pad) * i / (series.length - 1);
+  const y = p => pad + (H - 2 * pad) * (1 - p);
+  const shown = series.slice(0, upto + 1);
+  const svg = S('svg', { class: 'g-chart', viewBox: '0 0 ' + W + ' ' + H, role: 'img',
+    'aria-label': 'Ваш шанс на победу по ходу схватки: сейчас ' + pct(shown[shown.length - 1]) });
+  svg.append(S('rect', { x: 0, y: 0, width: W, height: H / 2, fill: 'color-mix(in srgb, var(--me) 8%, transparent)' }));
+  svg.append(S('rect', { x: 0, y: H / 2, width: W, height: H / 2, fill: 'color-mix(in srgb, var(--opp) 8%, transparent)' }));
+  svg.append(S('line', { x1: 0, x2: W, y1: y(0.5), y2: y(0.5), stroke: 'var(--border)', 'stroke-dasharray': '3 3' }));
+  svg.append(S('text', { x: 6, y: 16, 'font-size': 10, fill: 'var(--me)' }, 'в вашу пользу'));
+  svg.append(S('text', { x: 6, y: H - 8, 'font-size': 10, fill: 'var(--opp)' }, 'в пользу соперника'));
+  svg.append(S('polyline', { points: shown.map((p, i) => x(i) + ',' + y(p)).join(' '), fill: 'none', stroke: 'var(--text)', 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+  for (const m of marks || []) {
+    if (m.tick + 1 > upto) continue;
+    svg.append(S('circle', { cx: x(m.tick + 1), cy: y(series[m.tick + 1]), r: m.turning ? 6 : 4,
+      fill: m.turning ? 'var(--gold)' : m.delta >= 0 ? 'var(--me)' : 'var(--opp)', stroke: 'var(--surface)', 'stroke-width': 1.5 }));
+  }
+  return svg;
+}
+function feedLine(e, names) {
+  const out = [];
+  for (const ev of e.events) {
+    if (ev.type === 'move') {
+      const p = B.POSITIONS[ev.to];
+      out.push({ good: ev.who === 0, text: names[ev.who] + ': «' + actName(ev.actionId) + '» → ' + (p.kind === 'neutral' ? 'снова в стойке' : p.name.toLowerCase()) });
+    } else if (ev.type === 'points') out.push({ good: ev.who === 0, text: '+' + ev.amount + ' ' + plural(ev.amount, 'очко', 'очка', 'очков') + ' · ' + names[ev.who] });
+    else if (ev.type === 'advantage') out.push({ good: ev.who === 0, text: 'Преимущество · ' + names[ev.who] });
+    else if (ev.type === 'sub_survived') out.push({ good: ev.who === 0, text: names[ev.who] + ' выдерживает «' + actName(ev.actionId) + '»' });
+    else if (ev.type === 'submission') out.push({ good: ev.who === 0, text: 'Сабмишен! ' + names[ev.who] + ': «' + actName(ev.actionId) + '»' });
+  }
+  return out;
+}
+const replay = { k: 0, timer: null };
+function stopReplay() { if (replay.timer) { clearInterval(replay.timer); replay.timer = null; } }
+function startReplay() {
+  replay.k = 0;
+  stopReplay();
+  drawMatch();
+  replay.timer = setInterval(() => {
+    if (replay.k >= current.result.log.length) { stopReplay(); drawMatch(); return; }
+    replay.k++;
+    drawMatch();
+  }, 220);
+}
+function stateAt(k) {
+  const r = current.result;
+  if (k > 0) return r.log[k - 1].state;
+  return { pos: 'standing', dom: null, points: [0, 0], adv: [0, 0], stamina: r.maxStamina.slice(), maxStamina: r.maxStamina.slice() };
+}
+function drawMatch() {
+  const root = clear($('g-match'));
+  const r = current.result;
+  const k = replay.k;
+  const st = stateAt(k);
+  const names = current.names;
+  const done = k >= r.log.length;
+  const side = (i) => el('div', { class: 'side ' + (i === 0 ? 'me' : 'opp r') },
+    el('div', { class: 'who' }, names[i]), el('div', { class: 'pts' }, String(st.points[i])),
+    el('div', { class: 'g-mini' }, st.adv[i] + ' ' + plural(st.adv[i], 'преим.', 'преим.', 'преим.')),
+    el('div', { class: 'g-stam', role: 'img', 'aria-label': 'Выносливость ' + pct(st.stamina[i] / st.maxStamina[i]) },
+      el('span', { style: 'width:' + pct(st.stamina[i] / st.maxStamina[i]) + ';background:' + (i === 0 ? 'var(--me)' : 'var(--opp)') + ';margin-left:' + (i === 1 ? 'auto' : '0') })));
+  const p = B.POSITIONS[st.pos];
+  root.append(el('div', { class: 'g-card' },
+    el('div', { class: 'g-score' }, side(0), el('div', { class: 'clock' }, clock(k)), side(1)),
+    el('p', { class: 'g-center', style: 'margin:10px 0 6px;font-weight:600' },
+      p.kind === 'neutral' ? 'Стойка' : p.name + ': ' + names[st.dom] + ' ' + B.ROLE_LABELS[p.roles[0]]),
+    positionMap(st.pos, st.dom)));
+  root.append(el('div', { class: 'g-card' }, el('h2', null, 'Ход схватки'),
+    momentumChart(current.analysis.series, k, current.analysis.moments.map(m => ({ ...m, turning: current.analysis.turningPoint && m.tick === current.analysis.turningPoint.tick }))),
+    el('ul', { class: 'g-feed', style: 'margin-top:8px', id: 'g-feed' },
+      r.log.slice(0, k).flatMap(e => feedLine(e, names).map(x => el('li', { class: x.good ? 'good' : 'bad' }, el('span', { class: 't' }, clock(e.tick)), el('span', null, x.text)))).reverse())));
+  if (done) {
+    root.append(resultBanner());
+    root.append(el('button', { class: 'g-btn primary big', onclick: () => show('review') }, 'Разбор схватки'));
+  } else {
+    root.append(el('div', { class: 'g-row' },
+      el('button', { class: 'g-btn', onclick: () => { if (replay.timer) stopReplay(); else { replay.timer = setInterval(() => { if (replay.k >= r.log.length) { stopReplay(); drawMatch(); return; } replay.k++; drawMatch(); }, 220); } drawMatch(); } }, replay.timer ? '⏸ Пауза' : '▶ Смотреть'),
+      el('button', { class: 'g-btn', onclick: () => { stopReplay(); replay.k = r.log.length; drawMatch(); } }, '⏭ К итогу')));
+  }
+}
+function resultBanner() {
+  const r = current.result, e = current.entry;
+  const won = r.winner === 0;
+  const how = r.method === 'submission' ? 'сабмишеном: «' + actName(r.finish.actionId) + '» на ' + clock(r.ticks)
+    : r.method === 'points' ? 'по очкам ' + r.points[0] + ':' + r.points[1]
+    : r.method === 'advantages' ? 'по преимуществам ' + r.adv[0] + ':' + r.adv[1]
+    : r.method === 'stamina' ? 'по оставшейся выносливости' : 'решением судьи';
+  return el('div', { class: 'g-result ' + (won ? 'win' : 'loss') },
+    el('p', { class: 'big' }, won ? 'Победа!' : 'Поражение'),
+    el('p', { style: 'margin:4px 0 0' }, how),
+    e.ladderWin ? el('p', { style: 'margin:6px 0 0;font-weight:700' }, gs.champion ? '🏆 Вы чемпион лестницы!' : 'Открыта следующая ступень.') : null,
+    e.promotion ? el('p', { style: 'margin:6px 0 0;font-weight:700' }, '🎉 Новый пояс: ' + B.BELT_LABELS[e.promotion] + '. Потолок характеристик вырос до ' + B.beltCap(e.promotion) + '.') : null);
+}
+
+/* =====================================================================
+ * REVIEW
+ * ===================================================================== */
+const FACTOR = { attr: 'перевес в качествах и технике', archetype: 'сильные стороны архетипа', stamina: 'усталость защищающегося',
+  familiarity: 'привычная позиция' };
+const SITUATION = [
+  ['dominant', 'Вы доминируете', 'var(--me)'], ['guardTop', 'Вы сверху в гарде', 'color-mix(in srgb, var(--me) 55%, var(--surface))'],
+  ['standing', 'Стойка', 'var(--muted)'], ['guardBottom', 'Вы снизу в гарде', 'color-mix(in srgb, var(--opp) 55%, var(--surface))'],
+  ['stuck', 'Вас контролируют', 'var(--opp)'],
+];
+function cardHolding(actionId, style) {
+  for (const slot of B.STYLE_SLOTS) for (const o of slot.options) {
+    if (!o.steps) continue;
+    if (o.steps.some(s => s[0] === actionId || s[1] === actionId)) return { slot, option: o, current: style[slot.id] === o.id };
+  }
+  return null;
+}
+function turningText(tp) {
+  const names = current.names;
+  const c = tp.cause;
+  const lines = [];
+  const e = current.result.log[tp.tick];
+  const before = current.analysis.series[tp.tick], after = current.analysis.series[tp.tick + 1];
+  if (!c) return [el('p', null, 'Ваш шанс на победу изменился с ' + pct(before) + ' до ' + pct(after) + '.')];
+  const who = c.actor === 0 ? 'Вы' : names[1];
+  const act = actName(c.actionId);
+  const mv = e.events.find(ev => ev.type === 'move');
+  const where = mv ? (B.POSITIONS[mv.to].kind === 'neutral' ? ' и возвращает схватку в стойку' : ' и переводит в позицию «' + posName(mv.to) + '»') : '';
+  if (c.reversed) {
+    lines.push((c.actor === 0 ? names[1] + ' пробует «' + actName(c.failedActionId) + '», но вы контратакуете: «' + act + '»' : 'Вы пробуете «' + actName(c.failedActionId) + '», но ' + names[1] + ' контратакует: «' + act + '»') + where.replace('переводит', c.actor === 0 ? 'переводите' : 'переводит') + '.');
+  } else if (e.events.some(ev => ev.type === 'submission')) {
+    lines.push((c.actor === 0 ? 'Вы проводите' : names[1] + ' проводит') + ' «' + act + '», и схватка заканчивается.');
+  } else {
+    lines.push((c.actor === 0 ? 'Вы проводите «' + act + '»' + where.replace('переводит', 'переводите').replace('возвращает', 'возвращаете') : who + ' проводит «' + act + '»' + where) + '.');
+  }
+  const told = new Set();
+  for (const s of c.setup) {
+    const label = s.kind === 'grips' ? B.GRIPS[s.item] : B.FLAGS[s.item];
+    if (!s.acquired) continue;
+    const secs = s.acquired.heldTicks * B.CONFIG.match.secondsPerTick;
+    const how = s.acquired.actionId ? ' («' + actName(s.acquired.actionId) + '»)' : '';
+    if (c.actor === 1) {
+      lines.push('Ключ к этому: ' + (s.kind === 'grips' ? 'у соперника был «' + label + '»' : 'ситуация «' + label + '»') + ' — с ' + clock(s.acquired.tick) + how + ', ' + secs + ' с подряд.');
+      if (s.answers.length && !told.has(s.answers.join())) {
+        told.add(s.answers.join());
+        const ans = s.answers.map(id => '«' + actName(id) + '»').join(' или ');
+        if (!s.victimTried) {
+          const card = cardHolding(s.answers[0], current.style);
+          lines.push('Вы ни разу не попытались от этого избавиться, хотя здесь есть ' + ans + '.' +
+            (card && !card.current ? ' Такой ответ есть в карточке «' + card.option.name + '» (' + card.slot.name.toLowerCase() + ').' : ''));
+        } else lines.push('Попыток избавиться от этого: ' + s.victimTried + ', но безуспешно.');
+      }
+    } else {
+      lines.push('Подготовка сработала: ' + (s.kind === 'grips' ? 'у вас был «' + label + '»' : 'ситуация «' + label + '»') + ' — с ' + clock(s.acquired.tick) + how + ', ' + secs + ' с подряд.');
+    }
+  }
+  if (c.topFactor && c.chance[c.topFactor] >= 0.05) {
+    lines.push('Шанс приёма был ' + pct(c.chance.total) + '. Главный плюс ' + (c.actor === 0 ? 'для вас' : 'для соперника') + ': ' + FACTOR[c.topFactor] + ' (+' + Math.round(100 * c.chance[c.topFactor]) + '%).');
+  }
+  if (c.lucky) lines.push(c.actor === 1 ? 'Шанс у соперника был невелик (' + pct(c.chance.total) + ') — здесь просто не повезло.' : 'Шанс был невелик (' + pct(c.chance.total) + ') — вам повезло.');
+  lines.push('Ваш шанс на победу: ' + pct(before) + ' → ' + pct(after) + '.');
+  return lines.map(t => el('p', null, t));
+}
+function momentText(m) {
+  const e = current.result.log[m.tick];
+  const lines = feedLine(e, current.names);
+  return lines.length ? lines.map(x => x.text).join('; ') : 'Смена позиции';
+}
+function renderReview() {
+  const root = clear($('g-review'));
+  if (!current) { root.append(el('p', { class: 'g-sub' }, 'Разбор появится после схватки.')); return; }
+  const an = current.analysis;
+  root.append(resultBanner());
+  root.append(el('div', { class: 'g-card' }, el('h2', null, 'Ход схватки'),
+    momentumChart(an.series, an.series.length - 1, an.moments.map(m => ({ ...m, turning: an.turningPoint && m.tick === an.turningPoint.tick }))),
+    el('p', { class: 'g-mini' }, 'Оценка вашего шанса на победу по счёту, позиции и оставшемуся времени. Золотая точка — переломный момент.')));
+  if (an.turningPoint) {
+    root.append(el('div', { class: 'g-card' }, el('h2', null, '⚡ Переломный момент · ' + clock(an.turningPoint.tick)),
+      el('div', { class: 'g-turn' }, turningText(an.turningPoint))));
+  }
+  if (an.moments.length) {
+    root.append(el('div', { class: 'g-card' }, el('h2', null, 'Ключевые моменты'),
+      el('ul', { class: 'g-feed', style: 'max-height:none' }, an.moments.map(m =>
+        el('li', { class: m.delta >= 0 ? 'good' : 'bad' }, el('span', { class: 't' }, clock(m.tick)), el('span', null, momentText(m)))))));
+  }
+  const total = Object.values(an.time).reduce((a, b) => a + b, 0) || 1;
+  root.append(el('div', { class: 'g-card' }, el('h2', null, 'Где прошло время'),
+    el('div', { class: 'g-split', role: 'img', 'aria-label': SITUATION.map(([k, l]) => l + ' ' + pct(an.time[k] / total)).join(', ') },
+      SITUATION.filter(([k]) => an.time[k]).map(([k, , c]) => el('span', { style: 'width:' + (100 * an.time[k] / total) + '%;background:' + c }))),
+    el('div', { class: 'g-legend' }, SITUATION.filter(([k]) => an.time[k]).map(([k, l, c]) => el('span', null, el('i', { style: 'background:' + c }), l + ' ' + pct(an.time[k] / total))))));
+  const gapItems = an.gaps.slice(0, 3).map(g => {
+    const secs = g.ticks * B.CONFIG.match.secondsPerTick;
+    const cands = g.fixes.map(x => ({ x, o: B.styleOption(x.slot, x.option) })).filter(({ x }) => current.style[x.slot] !== x.option);
+    const fix = cands.find(({ o }) => B.optionUnlocked(gs.fighter, o)) || cands[0];
+    const need = fix && !B.optionUnlocked(gs.fighter, fix.o) ? ' (откроется при: ' + Object.entries(fix.o.requires).map(([k, v]) => statName(k) + ' ' + v).join(', ') + ')' : '';
+    return el('li', null, el('span', { class: 't' }, (secs >= 60 ? Math.floor(secs / 60) + ' мин ' : '') + (secs % 60 ? secs % 60 + ' с' : '')),
+      el('span', null, 'Позиция «' + posName(g.pos) + '», вы ' + B.ROLE_LABELS[g.role] + ': в плане не было ответа, боец импровизировал со штрафом.' +
+        (fix ? ' Закрывает карточка «' + fix.o.name + '»' + need + '.' : '')));
+  });
+  if (gapItems.length) root.append(el('div', { class: 'g-card' }, el('h2', null, 'Пробелы в плане'), el('ul', { class: 'g-feed', style: 'max-height:none' }, gapItems)));
+  const reco = el('div', { class: 'g-card', id: 'g-reco' }, el('h2', null, 'Что тренировать'));
+  root.append(reco);
+  renderReco();
+  if (!current.reco) computeReco();
+  root.append(el('div', { class: 'g-row', style: 'margin-top:4px' },
+    el('button', { class: 'g-btn primary', onclick: () => show('ladder') }, 'К лестнице'),
+    el('button', { class: 'g-btn', onclick: () => show('train') }, 'К тренировкам')));
+}
+async function computeReco() {
+  const cur = current;
+  cur.reco = { progress: 0, done: false, rows: null };
+  // Advice is for the fighter as they are now, against the next ladder challenge.
+  cur.recoRung = Math.min(gs.rung, B.LADDER.length - 1);
+  const opp = B.ladderOpponent(cur.recoRung);
+  const oppPlan = B.compileStyle(opp.style);
+  const me = gs.fighter;
+  const variants = B.analysisVariants(me, gs.style);
+  const N = B.GAME.analysis.variantMatches;
+  const seeds = Array.from({ length: N }, (_, i) => B.deriveSeed(cur.seed ^ 0x5bd1e995, i));
+  const wins = [];
+  for (let i = 0; i < variants.length; i++) {
+    const v = variants[i];
+    wins.push(B.winsOver([v.fighter, opp.fighter], [v.plan, oppPlan], seeds));
+    cur.reco.progress = (i + 1) / variants.length;
+    if (current === cur && screen === 'review') renderReco();
+    await new Promise(r => setTimeout(r, 0));
+    if (current !== cur) return;
+  }
+  const base = wins[0] / N;
+  const rows = variants.slice(1).map((v, i) => ({ ...v, delta: wins[i + 1] / N - base })).filter(v => v.delta >= B.GAME.analysis.minUsefulDelta)
+    .sort((a, b) => b.delta - a.delta);
+  cur.reco = { done: true, base, stats: rows.filter(r => r.kind === 'stat').slice(0, 3), styles: rows.filter(r => r.kind === 'style').slice(0, 2) };
+  gs.recommended = cur.reco.stats.map(s => B.trainingsFor(s.stat)[0]).filter(Boolean);
+  save();
+  if (current === cur && screen === 'review') renderReco();
+}
+function renderReco() {
+  const box = $('g-reco');
+  if (!box || !current.reco) return;
+  const r = current.reco;
+  clear(box).append(el('h2', null, 'Что тренировать'));
+  if (!r.done) {
+    box.append(el('p', { class: 'g-sub' }, 'Проигрываем эту пару заново с разными улучшениями: ' + pct(r.progress || 0)),
+      el('div', { class: 'g-bar' }, el('span', { style: 'width:' + pct(r.progress || 0) })));
+    return;
+  }
+  const opp = B.ladderOpponent(current.recoRung).fighter;
+  const same = current.recoRung === current.rung;
+  box.append(el('p', { class: 'g-sub' }, (same ? 'Против этого соперника' : 'Следующий соперник — ' + opp.name + '. Против него') +
+    ' вы сейчас выигрываете примерно ' + pct(r.base) + ' схваток (оценка по ' + B.GAME.analysis.variantMatches + ' симуляциям).' +
+    (same && current.result.winner !== 0 && r.base >= 0.55 ? ' Это поражение скорее невезение: план в целом рабочий.' : '') +
+    (same && current.result.winner === 0 && r.base < 0.4 ? ' Эта победа скорее удача: соперник пока сильнее.' : '')));
+  if (!r.stats.length && !r.styles.length) {
+    box.append(el('p', null, 'Ни одно улучшение на +1 не меняет расклад больше чем на ' + pct(B.GAME.analysis.minUsefulDelta) + '. Качайте то, что откроет нужные карточки стиля.'));
+  }
+  for (const s of r.stats) {
+    const tid = B.trainingsFor(s.stat)[0];
+    const t = B.TRAININGS.find(x => x.id === tid);
+    box.append(el('div', { class: 'g-reco' },
+      el('div', null, el('div', null, '+1 к «' + statName(s.stat) + '»'), el('div', { class: 'g-mini' }, 'Тренировка: ' + t.icon + ' ' + t.name + ', ' + t.hours + ' ч')),
+      el('div', { style: 'text-align:right' }, el('div', { class: 'delta' }, '+' + Math.round(100 * s.delta) + '% побед'),
+        el('button', { class: 'g-btn', style: 'min-height:34px;padding:4px 10px;margin-top:4px', disabled: !!gs.training, onclick: () => startTraining(tid) }, gs.training ? 'Идёт тренировка' : 'Начать'))));
+  }
+  for (const s of r.styles) {
+    const o = B.styleOption(s.slot, s.option);
+    const slot = B.STYLE_SLOTS.find(x => x.id === s.slot);
+    box.append(el('div', { class: 'g-reco' },
+      el('div', null, el('div', null, 'Карточка «' + o.name + '»'), el('div', { class: 'g-mini' }, slot.name + ': вместо «' + B.styleOption(s.slot, gs.style[s.slot]).name + '»')),
+      el('div', { style: 'text-align:right' }, el('div', { class: 'delta' }, '+' + Math.round(100 * s.delta) + '% побед'),
+        el('button', { class: 'g-btn', style: 'min-height:34px;padding:4px 10px;margin-top:4px', disabled: gs.style[s.slot] === s.option,
+          onclick: () => { gs.style[s.slot] = s.option; save(); toast('Карточка выбрана: ' + o.name + '.'); renderReco(); } }, gs.style[s.slot] === s.option ? 'Выбрано' : 'Применить'))));
+  }
+}
+
+/* ---------------- start ---------------- */
+window.addEventListener('beforeunload', save);
+show(gs ? 'fighter' : 'onboard');
+})();
+</script>
+
 </body>
 </html>
