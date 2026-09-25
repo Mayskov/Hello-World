@@ -41,6 +41,7 @@ node tools/harness.js selftest          # data + engine self-tests
 node tools/harness.js match 42 0 1      # one logged match: seed, preset A, preset B
 node tools/harness.js matrix 2000       # round robin, matches per pair
 node tools/harness.js accept            # every acceptance criterion from the brief
+node tools/harness.js archetypes 3      # game-mode archetype balance (best build vs best build, ~3 min)
 ```
 
 ## Tuning

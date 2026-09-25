@@ -30,6 +30,5 @@ if (require.main === module) {
     console.error('unknown command ' + cmd + '; try: ' + Object.keys(commands).join(', '));
     process.exit(2);
   }
-  const ok = commands[cmd](BJJ, process.argv.slice(3));
-  process.exit(ok === false ? 1 : 0);
+  Promise.resolve(commands[cmd](BJJ, process.argv.slice(3))).then(ok => process.exit(ok === false ? 1 : 0));
 }

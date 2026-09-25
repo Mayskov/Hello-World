@@ -168,7 +168,54 @@ at 4,000–5,000 matches per pair.
 - Training pace: about 1.5 stat levels per 6-hour session, so the full ladder needs roughly 15–20 sessions.
 
 Open questions:
-- **Wrestler is the strongest starter** in game mode (55–70% at matched level), pressure passer the weakest (40–53%).
+- ~~Wrestler is the strongest starter~~: fixed by the archetype pass below.
 - **Unlimited attempts**: you can re-fight a rung immediately after a loss, so luck can be ground out. A cooldown or
   an energy system would fix it if that matters.
 - **Recommendations** use 200 simulations per variant with common seeds; gains under 3% are hidden as noise.
+
+## Archetype balance pass (game mode)
+
+Goal: pick the archetype you like, train it well, and have an equal chance against other well-trained archetypes.
+
+**How it's measured** (`node tools/harness.js archetypes`, about 3 minutes): at 0, 8, 16 and 26 training sessions
+(white, blue, purple and brown belt), each archetype searches for its best mix of trainings plus style cards as a best
+response to the other archetypes' best builds, over 3 rounds. The final best-vs-best matrix is then played on fresh
+seeds, 800 matches per pair. Archetypes are compared at **equal training time**, not equal points.
+
+**Root cause found:** the 12 stats were far from equally useful. At mid-career, +1 level was worth anywhere from 0.06
+win-rate points (transitions) to 1.9 (guard). Cardio, submissions and transitions were close to dead, which is exactly
+why the archetypes built on them (submission hunter, wrestler) lagged and why every "correct" build converged on the
+same stats.
+
+What changed:
+1. **Stat values flattened.** Transitions now feed sweeps, passes and scrambles. Submissions also help defend
+   submissions. Grip, escapes and flexibility got more weight, guard and pressure a little less. Stamina matters:
+   max stamina = 20 + 12 × cardio, actions cost 0.9× (was 60 + 8 × cardio at 0.6×), fatigue penalty 20%. After this,
+   +1 in any stat is worth roughly 0.2–1.6 points (within noise of about ±0.4) instead of 0.06–1.9.
+2. **Archetype power moved into progression.** Each archetype levels 3 stats faster (`training.xpBonus`), and its
+   combat modifiers are small flavour (±2.5–7%).
+
+| Archetype | Faster stats | XP bonus | Combat flavour |
+|---|---|---|---|
+| Pressure passer | pressure, passing, defence | +90% | passes +3.5%; opponents' sweeps and escapes −2.5% |
+| Guard player | guard, flexibility, grip | +100% | sweeps +3.5%; opponents' passes −3.5% |
+| Wrestler | takedowns, transitions, cardio | +50% | takedowns +3.5%; opponents' takedowns −3% |
+| Submission hunter | submissions, flexibility, escapes | +150% | submissions +7%; opponents' submissions −4% |
+
+   The wrestler's fast stats were originally takedowns, explosiveness and transitions. Explosiveness is valuable on its
+   own and powers takedowns, so maxing both made "takedown, speed passing, survive" too strong at purple and brown
+   (58–59%). Swapping explosiveness for cardio fixed that.
+3. **Result:** every archetype averages 48–55% against the others at every checkpoint, and individual pairs sit
+   between 45% and 61%, so a mild rock-paper-scissors remains.
+4. **Lab presets rebuilt.** Shrinking the archetype modifiers broke three of the brief's rock-paper-scissors edges
+   (the wrestler's old riding bonuses carried them). The four preset builds were re-searched within the same 40/30
+   budget, and every original acceptance criterion passes again on independent seeds, with wider margins than
+   before: the edges are now 56.5–61.7%. The preset builds also shape ladder opponents, so the early ladder got a
+   little easier (a starter wins rungs 1–4 about 56–73% of the time).
+
+Caveats:
+- **Noise.** The measurement has about ±3 points of noise per cell, so reruns can show one archetype at 55–57%
+  on a checkpoint.
+- **Identity is only partly visible in best builds.** Hunters train submissions and wrestlers train wrestling, but
+  guard, escapes and sparring are useful to everyone. Stronger identity would need bigger XP bonuses or
+  archetype-only cards.

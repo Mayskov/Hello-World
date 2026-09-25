@@ -528,15 +528,15 @@ const CONFIG = {
     initiativeNoise: 0.4,    // random spread when both fighters try to change position
   },
   stamina: {
-    base: 60,
-    perCardio: 8,            // max stamina = base + perCardio * cardio
+    base: 20,
+    perCardio: 12,           // max stamina = base + perCardio * cardio
     recoverBase: 2,
     recoverPerCardio: 0.4,   // recovery in a tick with no attempt
-    costScale: 0.6,          // multiplies every action's staminaCost
+    costScale: 0.9,          // multiplies every action's staminaCost
     defendShare: 0.3,        // defender pays this share of the attacker's cost
     pinnedDrain: 1.5,        // per tick when stuck under a pin or with the back taken
     fatigueThreshold: 0.4,   // penalty starts below 40% stamina
-    fatiguePenalty: 0.15,    // penalty at 0 stamina (linear from the threshold)
+    fatiguePenalty: 0.2,     // penalty at 0 stamina (linear from the threshold)
     defenderFatigueShare: 0.5, // a tired defender helps the attacker by this share
     zeroStaminaCategories: ['grip', 'defense'],
   },
@@ -616,42 +616,42 @@ const FLAGS = { posture_broken: 'осанка сломана', arm_isolated: 'р
 const WEIGHTS = {
   gripFight:       { gripStrength: 0.6, defense: 0.4 },
   standGrip:       { gripStrength: 0.5, takedowns: 0.5 },
-  guardGrip:       { gripStrength: 0.5, guard: 0.5 },
-  topGrip:         { gripStrength: 0.4, passing: 0.3, pressure: 0.3 },
-  pinGrip:         { pressure: 0.5, transitions: 0.5 },
-  frame:           { escapes: 0.5, defense: 0.5 },
-  takedownAtt:     { takedowns: 0.6, explosiveness: 0.4 },
+  guardGrip:       { gripStrength: 0.55, guard: 0.45 },
+  topGrip:         { gripStrength: 0.5, passing: 0.25, pressure: 0.25 },
+  pinGrip:         { pressure: 0.4, transitions: 0.6 },
+  frame:           { escapes: 0.6, defense: 0.4 },
+  takedownAtt:     { takedowns: 0.65, explosiveness: 0.35 },
   takedownDef:     { takedowns: 0.3, pressure: 0.3, defense: 0.2, explosiveness: 0.2 },
   snapDownAtt:     { pressure: 0.4, gripStrength: 0.3, takedowns: 0.3 },
-  kneeThroughDef:  { guard: 0.4, flexibility: 0.6 },
-  pullAtt:         { guard: 0.7, flexibility: 0.3 },
+  kneeThroughDef:  { guard: 0.3, flexibility: 0.5, transitions: 0.2 },
+  pullAtt:         { guard: 0.6, flexibility: 0.4 },
   pullDef:         { takedowns: 0.5, explosiveness: 0.3, pressure: 0.2 },
-  postureAtt:      { guard: 0.5, gripStrength: 0.3, flexibility: 0.2 },
-  postureDef:      { pressure: 0.5, defense: 0.3, passing: 0.2 },
+  postureAtt:      { guard: 0.4, gripStrength: 0.3, flexibility: 0.3 },
+  postureDef:      { pressure: 0.4, defense: 0.3, passing: 0.3 },
   postureUpAtt:    { pressure: 0.5, defense: 0.5 },
-  postureUpDef:    { guard: 0.5, gripStrength: 0.5 },
+  postureUpDef:    { gripStrength: 0.6, guard: 0.4 },
   guardMoveAtt:    { guard: 0.6, flexibility: 0.4 },
-  guardMoveDef:    { passing: 0.6, explosiveness: 0.4 },
-  sweepAtt:        { guard: 0.5, explosiveness: 0.3, flexibility: 0.2 },
-  sweepDef:        { pressure: 0.4, passing: 0.3, defense: 0.3 },
-  passAtt:         { passing: 0.6, pressure: 0.2, explosiveness: 0.2 },
-  pressurePassAtt: { passing: 0.4, pressure: 0.6 },
-  speedPassAtt:    { passing: 0.5, explosiveness: 0.5 },
-  passDef:         { guard: 0.5, flexibility: 0.3, defense: 0.2 },
+  guardMoveDef:    { passing: 0.5, transitions: 0.3, explosiveness: 0.2 },
+  sweepAtt:        { guard: 0.45, transitions: 0.25, flexibility: 0.2, explosiveness: 0.1 },
+  sweepDef:        { pressure: 0.3, passing: 0.25, defense: 0.2, transitions: 0.25 },
+  passAtt:         { passing: 0.5, transitions: 0.3, pressure: 0.2 },
+  pressurePassAtt: { passing: 0.5, pressure: 0.5 },
+  speedPassAtt:    { passing: 0.4, explosiveness: 0.35, transitions: 0.25 },
+  passDef:         { guard: 0.4, flexibility: 0.3, transitions: 0.2, defense: 0.1 },
   openGuardAtt:    { passing: 0.5, explosiveness: 0.3, pressure: 0.2 },
-  openGuardDef:    { guard: 0.6, flexibility: 0.4 },
-  topTransAtt:     { transitions: 0.5, pressure: 0.3, explosiveness: 0.2 },
+  openGuardDef:    { guard: 0.5, flexibility: 0.3, transitions: 0.2 },
+  topTransAtt:     { transitions: 0.6, pressure: 0.2, explosiveness: 0.2 },
   topTransDef:     { escapes: 0.5, defense: 0.3, explosiveness: 0.2 },
   backAtt:         { transitions: 0.5, flexibility: 0.3, explosiveness: 0.2 },
   backDef:         { defense: 0.5, escapes: 0.3, explosiveness: 0.2 },
-  subAtt:          { submissions: 0.6, gripStrength: 0.2, flexibility: 0.2 },
-  flexSubAtt:      { submissions: 0.5, flexibility: 0.5 },
-  chokeAtt:        { submissions: 0.6, gripStrength: 0.4 },
-  subDef:          { defense: 0.5, escapes: 0.3, flexibility: 0.2 },
-  escapeAtt:       { escapes: 0.6, explosiveness: 0.2, flexibility: 0.2 },
-  explosiveEscape: { explosiveness: 0.6, escapes: 0.4 },
-  escapeDef:       { pressure: 0.5, transitions: 0.3, defense: 0.2 },
-  handFightAtt:    { gripStrength: 0.5, defense: 0.5 },
+  subAtt:          { submissions: 0.7, gripStrength: 0.15, flexibility: 0.15 },
+  flexSubAtt:      { submissions: 0.6, flexibility: 0.4 },
+  chokeAtt:        { submissions: 0.7, gripStrength: 0.3 },
+  subDef:          { submissions: 0.4, defense: 0.3, escapes: 0.2, flexibility: 0.1 },
+  escapeAtt:       { escapes: 0.7, explosiveness: 0.15, flexibility: 0.15 },
+  explosiveEscape: { explosiveness: 0.5, escapes: 0.3, transitions: 0.2 },
+  escapeDef:       { pressure: 0.4, transitions: 0.35, defense: 0.25 },
+  handFightAtt:    { gripStrength: 0.6, defense: 0.4 },
   handFightDef:    { gripStrength: 0.5, transitions: 0.5 },
 };
 
@@ -951,8 +951,10 @@ for (const a of ACTION_LIST) {
 }
 
 /* ---------------------------------------------------------------------
- * ARCHETYPES: pure data. attack = bonus when this fighter attempts a
- * category, defend = penalty applied to the opponent's attempts of that
+ * ARCHETYPES: pure data. An archetype's power lives mostly in progression:
+ * training.stats level up faster (training.xpBonus). The combat modifiers
+ * are deliberately small flavour: attack = bonus when this fighter attempts
+ * a category, defend = penalty applied to the opponent's attempts of that
  * category, favourite = positions that give the familiarity bonus,
  * defaults = category order used when no plan step is usable.
  * ------------------------------------------------------------------- */
@@ -971,33 +973,37 @@ const ARCHETYPES = {
   pressure_passer: {
     name: 'Давящий пассер',
     summary: 'Тяжёлая игра сверху: прижимает в полугарде и дожимает через контроли.',
-    attack: { pass: 0.02, transition: 0.03, sweep: -0.04, takedown: 0.02 },
-    defend: { sweep: 0.01, escape: 0.08, takedown: 0.1 },
+    attack: { pass: 0.035 },
+    defend: { sweep: 0.025, escape: 0.025 },
     favourite: ['closed_guard', 'half_guard', 'side_control'],
+    training: { stats: ['pressure', 'passing', 'defense'], xpBonus: 0.9 },
     defaults: { neutral: ['grip', 'takedown'], guard_top: ['defense', 'grip', 'transition', 'pass'] },
   },
   guard_player: {
     name: 'Гардовик',
     summary: 'Затягивает в гард, живёт захватами, атакует снизу свипами и сабмишенами.',
-    attack: { sweep: 0.01, posture: 0.07, grip: 0.03, submission: 0.02 },
-    defend: { pass: 0.09, posture: 0.03 },
+    attack: { sweep: 0.035 },
+    defend: { pass: 0.035 },
     favourite: ['closed_guard', 'open_guard', 'de_la_riva', 'spider'],
+    training: { stats: ['guard', 'flexibility', 'gripStrength'], xpBonus: 1.0 },
     defaults: { neutral: ['grip', 'transition'], guard_bottom: ['grip', 'posture', 'submission', 'sweep'] },
   },
   wrestler: {
     name: 'Борец',
     summary: 'Выигрывает тейкдаун, жёстко борется в скрэмблах и не даёт затянуть себя в гард.',
-    attack: { takedown: 0.12, escape: 0.04, transition: 0.02, submission: -0.03 },
-    defend: { takedown: 0.06, transition: 0.08, sweep: 0.02, posture: 0.12, submission: 0.02 },
+    attack: { takedown: 0.035 },
+    defend: { takedown: 0.03 },
     favourite: ['standing', 'turtle', 'side_control'],
+    training: { stats: ['takedowns', 'transitions', 'cardio'], xpBonus: 0.5 },
     defaults: { neutral: ['takedown', 'grip'], guard_bottom: ['escape', 'grip', 'sweep'] },
   },
   submission_hunter: {
     name: 'Охотник за сабмишенами',
     summary: 'Из любой позиции ищет сдачу, но хуже удерживает позицию.',
-    attack: { submission: 0.06, grip: 0.02, pass: -0.02 },
+    attack: { submission: 0.07 },
     defend: { submission: 0.04 },
     favourite: ['back', 'mount', 'spider', 'closed_guard'],
+    training: { stats: ['submissions', 'flexibility', 'escapes'], xpBonus: 1.5 },
     defaults: { guard_bottom: ['grip', 'posture', 'submission', 'sweep'], pin_top: ['grip', 'submission', 'transition'] },
   },
 };
@@ -1029,23 +1035,23 @@ function step(primary, fallback, condition, maxAttempts) {
 const PRESET_FIGHTERS = {
   pressure: {
     name: 'Давящий пассер', archetype: 'pressure_passer', giColor: '#1d3b8b', beltRank: 'brown', tapPolicy: 'balanced',
-    attributes: { gripStrength: 6, pressure: 10, flexibility: 3, explosiveness: 6, cardio: 7, defense: 8 },
-    techniques: { takedowns: 5, guard: 2, passing: 9, transitions: 6, submissions: 3, escapes: 5 },
+    attributes: { gripStrength: 6, pressure: 8, flexibility: 5, explosiveness: 8, cardio: 5, defense: 8 },
+    techniques: { takedowns: 5, guard: 3, passing: 7, transitions: 8, submissions: 3, escapes: 4 },
   },
   closed_guard: {
     name: 'Гибкий гардовик', archetype: 'guard_player', giColor: '#f4f1ea', beltRank: 'brown', tapPolicy: 'balanced',
-    attributes: { gripStrength: 8, pressure: 3, flexibility: 10, explosiveness: 5, cardio: 7, defense: 7 },
-    techniques: { takedowns: 2, guard: 9, passing: 3, transitions: 4, submissions: 8, escapes: 4 },
+    attributes: { gripStrength: 9, pressure: 4, flexibility: 10, explosiveness: 6, cardio: 6, defense: 5 },
+    techniques: { takedowns: 1, guard: 9, passing: 1, transitions: 5, submissions: 8, escapes: 6 },
   },
   dlr: {
     name: 'Игрок де ла Ривы', archetype: 'guard_player', giColor: '#111111', beltRank: 'brown', tapPolicy: 'balanced',
-    attributes: { gripStrength: 6, pressure: 3, flexibility: 9, explosiveness: 8, cardio: 8, defense: 6 },
-    techniques: { takedowns: 2, guard: 8, passing: 3, transitions: 8, submissions: 5, escapes: 4 },
+    attributes: { gripStrength: 4, pressure: 5, flexibility: 6, explosiveness: 10, cardio: 6, defense: 9 },
+    techniques: { takedowns: 2, guard: 7, passing: 3, transitions: 7, submissions: 8, escapes: 3 },
   },
   wrestler: {
     name: 'Борец', archetype: 'wrestler', giColor: '#f4f1ea', beltRank: 'brown', tapPolicy: 'balanced',
-    attributes: { gripStrength: 6, pressure: 6, flexibility: 4, explosiveness: 10, cardio: 9, defense: 5 },
-    techniques: { takedowns: 9, guard: 2, passing: 4, transitions: 6, submissions: 3, escapes: 6 },
+    attributes: { gripStrength: 10, pressure: 5, flexibility: 2, explosiveness: 9, cardio: 6, defense: 8 },
+    techniques: { takedowns: 10, guard: 1, passing: 5, transitions: 4, submissions: 4, escapes: 6 },
   },
 };
 const PRESET_PLANS = {
@@ -2153,8 +2159,9 @@ function applyTraining(state, trainingId) {
     const g = statGroup(key);
     let levels = 0;
     const capped = state.fighter[g][key] >= cap;
+    const gain = Math.round(t.gains[key] * xpMultiplier(state.fighter.archetype, key));
     if (!capped) {
-      state.xp[key] += t.gains[key];
+      state.xp[key] += gain;
       while (state.xp[key] >= GAME.xpPerLevel && state.fighter[g][key] < cap) {
         state.xp[key] -= GAME.xpPerLevel;
         state.fighter[g][key]++;
@@ -2162,9 +2169,28 @@ function applyTraining(state, trainingId) {
       }
       if (state.fighter[g][key] >= cap) state.xp[key] = 0;
     }
-    out.push({ stat: key, gained: capped ? 0 : t.gains[key], levels, capped: state.fighter[g][key] >= cap });
+    out.push({ stat: key, gained: capped ? 0 : gain, levels, capped: state.fighter[g][key] >= cap });
   }
   return out;
+}
+
+function xpMultiplier(archetype, stat) {
+  const t = ARCHETYPES[archetype] && ARCHETYPES[archetype].training;
+  return t && t.stats.includes(stat) ? 1 + t.xpBonus : 1;
+}
+// A fighter after a set of finished trainings: counts = { trainingId: sessions }.
+// Sessions are applied round-robin so belt caps bite the same way as in play.
+function buildFromTrainings(archetype, counts, belt, style) {
+  const g = newGameFighter('x', archetype);
+  g.fighter.beltRank = belt;
+  if (style) g.style = { ...style };
+  const left = { ...counts };
+  let any = true;
+  while (any) {
+    any = false;
+    for (const t of TRAININGS) if (left[t.id] > 0) { applyTraining(g, t.id); left[t.id]--; any = true; }
+  }
+  return g;
 }
 
 function optionUnlocked(fighter, option) {
@@ -2442,6 +2468,10 @@ function runGameSelfTests() {
   check('Тренировка на 100 опыта поднимает характеристику на 1', g.fighter.attributes.gripStrength === before + 1);
   for (let i = 0; i < 10; i++) applyTraining(g, 'grip');
   check('Характеристика не растёт выше потолка пояса', g.fighter.attributes.gripStrength === beltCap('white'));
+  const w = newGameFighter('x', 'wrestler');
+  applyTraining(w, 'transitions');
+  const bonusXp = Math.round(100 * (1 + ARCHETYPES.wrestler.training.xpBonus));
+  check('Профильная характеристика архетипа качается быстрее', w.fighter.techniques.transitions === STARTERS.wrestler.techniques.transitions + Math.floor(bonusXp / 100) && w.xp.transitions === bonusXp % 100);
   const opp = ladderOpponent(3);
   const r = runMatch([g.fighter, opp.fighter], [compileStyle(g.style), compileStyle(opp.style)], 99);
   const an = analyseMatch(r, 0);
@@ -2458,7 +2488,7 @@ return {
   newBatch, recordMatch, summariseBatch, planJobs, runJob, presetEntries, wilson,
   runEngineSelfTests, checkMatchInvariants,
   GAME, TRAININGS, STYLE_SLOTS, RISK_LEVELS, STARTERS, LADDER, OPPONENT_PROFILES,
-  beltCap, statGroup, statValue, newGameFighter, applyTraining, optionUnlocked, styleOption, compileStyle,
+  beltCap, statGroup, statValue, newGameFighter, applyTraining, xpMultiplier, buildFromTrainings, optionUnlocked, styleOption, compileStyle,
   spreadPoints, ladderOpponent, rungBelt, promotionFor, analyseMatch, momentum, winsOver, analysisVariants, trainingsFor,
   runGameSelfTests,
 };
@@ -3314,18 +3344,22 @@ function renderOnboard() {
   const root = clear($('g-onboard'));
   root.append(el('div', { class: 'g-card g-center' },
     el('h2', null, 'Новый боец'),
-    el('p', { class: 'g-sub' }, 'Вы начинаете белым поясом. Тренируйтесь, выбирайте стиль и поднимайтесь по лестнице из 15 соперников до чёрного пояса.')));
+    el('p', { class: 'g-sub' }, 'Вы начинаете белым поясом. Тренируйтесь, выбирайте стиль и поднимайтесь по лестнице из 15 соперников до чёрного пояса. Архетип задаёт стартовые сильные стороны и то, что качается быстрее; в схватке все архетипы при правильной раскачке равны.')));
   const name = el('input', { type: 'text', id: 'g-name', maxLength: 30, value: onboard.name, placeholder: 'Например, Алексей «Кимура»', style: 'width:100%' });
   name.addEventListener('input', () => { onboard.name = name.value; });
   const arch = el('div', { class: 'g-arch', role: 'radiogroup', 'aria-label': 'Архетип' });
   for (const k in B.ARCHETYPES) {
     const a = B.ARCHETYPES[k];
     const s = B.STARTERS[k];
-    const top = [...B.ATTRIBUTE_KEYS, ...B.TECHNIQUE_KEYS].sort((x, y) => B.statValue(s, y) - B.statValue(s, x)).slice(0, 3).map(statName);
+    // What this starter has more of than the other starters.
+    const keys = [...B.ATTRIBUTE_KEYS, ...B.TECHNIQUE_KEYS];
+    const avg = k => Object.values(B.STARTERS).reduce((t, x) => t + B.statValue(x, k), 0) / Object.keys(B.STARTERS).length;
+    const top = keys.sort((x, y) => (B.statValue(s, y) - avg(y)) - (B.statValue(s, x) - avg(x))).slice(0, 3).map(statName);
     arch.append(el('button', { class: 'g-tile' + (onboard.archetype === k ? ' sel' : ''), role: 'radio', 'aria-checked': onboard.archetype === k ? 'true' : 'false',
       onclick: () => { onboard.archetype = k; renderOnboard(); } },
       el('span', { class: 'ico', 'aria-hidden': 'true' }, ARCH_ICON[k]), el('span', { class: 't' }, a.name),
-      el('span', { class: 'd' }, a.summary), el('span', { class: 'd' }, 'Сильные стороны: ' + top.join(', ').toLowerCase())));
+      el('span', { class: 'd' }, a.summary), el('span', { class: 'd' }, 'Сильные стороны: ' + top.join(', ').toLowerCase()),
+      el('span', { class: 'd', style: 'color:var(--gold)' }, '★ Быстрее качает: ' + fastStats(k))));
   }
   const gis = el('div', { class: 'g-row', role: 'radiogroup', 'aria-label': 'Цвет ги' });
   for (const [c, label] of [['#f4f1ea', 'белое'], ['#1d3b8b', 'синее'], ['#111111', 'чёрное']]) {
@@ -3359,7 +3393,8 @@ function renderFighter() {
       el('div', null, el('p', { class: 'name' }, f.name),
         el('div', { class: 'g-row', style: 'margin:6px 0' }, beltChip(f.beltRank), el('span', { class: 'g-chip' }, ARCH_ICON[f.archetype] + ' ' + a.name)),
         el('div', { class: 'g-mini' }, gs.champion ? 'Чемпион лестницы 🏆' : 'Лестница: ступень ' + (gs.rung + 1) + ' из ' + B.LADDER.length),
-        el('div', { class: 'g-mini' }, 'Потолок характеристик на этом поясе: ' + cap)))));
+        el('div', { class: 'g-mini' }, 'Потолок характеристик на этом поясе: ' + cap),
+        el('div', { class: 'g-mini', style: 'color:var(--gold)' }, '★ Быстрее качает: ' + fastStats(f.archetype))))));
   const t = training();
   if (t) {
     root.append(el('button', { class: 'g-card g-tile', style: 'width:100%', onclick: () => show('train') },
@@ -3392,9 +3427,13 @@ function methodText(h) {
 /* =====================================================================
  * TRAINING
  * ===================================================================== */
-function gainText(t) {
-  return Object.entries(t.gains).map(([k, v]) => '+' + (v >= 100 ? v / 100 : v / 100).toString().replace('.', ',') + ' ' + statName(k)).join(', ');
+function gainText(t, archetype) {
+  return Object.entries(t.gains).map(([k, v]) => {
+    const m = archetype ? B.xpMultiplier(archetype, k) : 1;
+    return '+' + (Math.round(v * m) / 100).toString().replace('.', ',') + ' ' + statName(k) + (m > 1 ? ' ★' : '');
+  }).join(', ');
 }
+function fastStats(archetype) { return B.ARCHETYPES[archetype].training.stats.map(statName).join(', ').toLowerCase(); }
 function claimTraining() {
   const t = training();
   const res = B.applyTraining(gs, t.id);
@@ -3431,12 +3470,12 @@ function renderTrain() {
     root.append(el('div', { class: 'g-card g-center' },
       el('h2', null, t.icon + ' ' + t.name), ring(frac),
       el('div', { class: 'g-timer', id: 'g-train-timer' }, done ? 'Готово!' : fmtLeft(gs.training.end - now())),
-      el('p', { class: 'g-sub' }, gainText(t)),
+      el('p', { class: 'g-sub' }, gainText(t, gs.fighter.archetype)),
       done ? el('button', { class: 'g-btn primary big', onclick: claimTraining }, 'Забрать результат')
         : el('button', { class: 'g-btn ghost', onclick: () => { if (confirm('Прервать тренировку? Опыт не начислится.')) { gs.training = null; save(); render(); } } }, 'Прервать')));
   } else {
     root.append(el('div', { class: 'g-card' }, el('h2', null, 'Чем займёмся?'),
-      el('p', { class: 'g-sub' }, 'Одна тренировка за раз. Пока идёт тренировка, выходить на схватку нельзя. 100 опыта = +1 к характеристике.')));
+      el('p', { class: 'g-sub' }, 'Одна тренировка за раз. Пока идёт тренировка, выходить на схватку нельзя. 100 опыта = +1 к характеристике. ★ — ваш архетип качает это на ' + Math.round(100 * B.ARCHETYPES[gs.fighter.archetype].training.xpBonus) + '% быстрее.')));
   }
   const grid = el('div', { class: 'g-grid' });
   const recs = gs.recommended || [];
@@ -3448,7 +3487,7 @@ function renderTrain() {
       onclick: () => startTraining(tr.id) },
       rec ? el('span', { class: 'rec-tag' }, '★ Советует разбор') : null,
       el('span', { class: 'ico', 'aria-hidden': 'true' }, tr.icon), el('span', { class: 't' }, tr.name),
-      el('span', { class: 'd' }, tr.hours + ' ч · ' + gainText(tr)),
+      el('span', { class: 'd' }, tr.hours + ' ч · ' + gainText(tr, gs.fighter.archetype)),
       allCapped ? el('span', { class: 'd', style: 'color:var(--bad)' }, 'Всё упёрлось в потолок пояса') : null));
   }
   root.append(el('div', { class: 'g-card' }, el('h2', null, 'Тренировки'), grid));

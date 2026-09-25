@@ -100,6 +100,28 @@ module.exports = {
     printSummary(sum);
   },
 
+  // Game-mode balance: best build of each archetype vs the others' best builds, per career checkpoint.
+  async archetypes(BJJ, args) {
+    const { optimise, finalMatrix, describeBuild, CHECKPOINTS } = require('./archetypes.js');
+    const rounds = Number(args[0] || 2);
+    const { B, archs, builds } = await optimise(rounds, null, m => console.log('  ' + m));
+    const res = finalMatrix(B, archs, builds);
+    let ok = true;
+    for (const r of res) {
+      console.log('\n' + r.cp.sessions + ' тренировок, ' + B.BELT_LABELS[r.cp.belt]);
+      archs.forEach((a, i) => {
+        const avgOk = r.avg[i] >= 0.45 && r.avg[i] <= 0.55;
+        const pairOk = r.matrix[i].every(v => v === null || (v >= 0.35 && v <= 0.65));
+        if (!avgOk || !pairOk) ok = false;
+        const d = describeBuild(B, a, r.cp, builds[a][CHECKPOINTS.indexOf(r.cp)]);
+        console.log((avgOk && pairOk ? '  PASS ' : '  FAIL ') + B.ARCHETYPES[a].name.padEnd(24) + ' в среднем ' + pct(r.avg[i]) +
+          '  пары ' + r.matrix[i].filter(v => v !== null).map(pct).join(' ') + '   ' + d.style);
+      });
+    }
+    console.log(ok ? '\nАрхетипы сбалансированы: 50% ±5 в среднем, пары в пределах 35–65%.' : '\nЕсть дисбаланс, см. FAIL выше.');
+    return ok;
+  },
+
   accept(BJJ, args) {
     const scale = Number(args[0] || 1);
     let ok = true;
